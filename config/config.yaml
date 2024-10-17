@@ -1,0 +1,30 @@
+camera:
+  fps: 30
+  resolution:
+  - 1280
+  - 720
+capture:
+  interval: 0.25
+  num_images: 50
+chroma_key:
+  lower_color:
+  - 0
+  - 58
+  - 0
+  upper_color:
+  - 179
+  - 255
+  - 255
+class_name: object
+depth_threshold:
+  max: 628
+  min: 596
+output:
+  depth_dir: data/depth_maps
+  image_dir: data/images
+  label_dir: data/labels
+rois:
+- height: 242
+  width: 216
+  x: 653
+  y: 166
