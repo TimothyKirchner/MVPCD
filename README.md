@@ -61,3 +61,15 @@ MVPCD/
 
 ## Lizenz
     Dieses Projekt ist unter der MIT-Lizenz lizenziert.
+
+## Data and Model Weights
+
+The data files and pre-trained model weights are not included in this repository due to their size.
+
+- **Data Files:**
+  - Download the necessary data files from [link or location].
+  - Place them in the `data/` directory.
+
+- **Model Weights:**
+  - Download the pre-trained YOLOv8 model weights from [Ultralytics repository](https://github.com/ultralytics/ultralytics).
+  - Place them in the project root directory or specify the path in your configuration.
