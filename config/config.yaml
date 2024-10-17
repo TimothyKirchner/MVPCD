@@ -24,7 +24,7 @@ output:
   image_dir: data/images
   label_dir: data/labels
 rois:
-- height: 242
-  width: 216
-  x: 653
-  y: 166
+- height: 214
+  width: 237
+  x: 622
+  y: 197

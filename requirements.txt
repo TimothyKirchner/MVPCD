@@ -1,0 +1,9 @@
+opencv-python
+numpy
+pyyaml
+pyzed
+matplotlib
+scikit-image
+Pillow
+ultralytics
+albumentations
