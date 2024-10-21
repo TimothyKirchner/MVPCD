@@ -32,7 +32,3 @@ runs/
 *.swp
 .DS_Store
 Thumbs.db
-
-!requirements.txt
-!./data/mvpcd.yaml
-!

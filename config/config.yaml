@@ -24,7 +24,14 @@ output:
   image_dir: data/images
   label_dir: data/labels
 rois:
+<<<<<<< HEAD
 - height: 231
   width: 244
   x: 567
   y: 156
+=======
+- height: 242
+  width: 216
+  x: 653
+  y: 166
+>>>>>>> parent of 8b4500e... Initial commit: Added some Albumentation adjustments to improve recognition over different backgrounds
