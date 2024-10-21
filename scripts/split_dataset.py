@@ -11,7 +11,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 def split_dataset(test_size=0.2, random_state=42):
-    image_dir = os.path.join(project_root, 'data', 'images', 'train')
+    image_dir = os.path.join(project_root, 'data', 'images', 'processed')
     label_dir = os.path.join(project_root, 'data', 'labels')
     
     # Directories for split datasets
@@ -39,8 +39,7 @@ def split_dataset(test_size=0.2, random_state=42):
             # Copy image
             src_image = os.path.join(src_image_dir, filename)
             dst_image = os.path.join(dst_image_dir, filename)
-            if src_image != dst_image:
-                shutil.copy(src_image, dst_image)
+            shutil.copy(src_image, dst_image)
             
             # Copy label
             label_filename = os.path.splitext(filename)[0] + '.txt'
@@ -49,7 +48,7 @@ def split_dataset(test_size=0.2, random_state=42):
             if os.path.exists(src_label):
                 shutil.copy(src_label, dst_label)
             else:
-                print(f"Warning: Label file {label_filename} does not exist for image {filename} in {src_image_dir} and {src_label_dir}")
+                print(f"Warning: Label file {label_filename} does not exist for image {filename}")
     
     # Copy training files
     copy_files(train_files, image_dir, label_dir, train_image_dir, train_label_dir)

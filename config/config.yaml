@@ -9,29 +9,22 @@ capture:
 chroma_key:
   lower_color:
   - 0
-  - 0
+  - 58
   - 0
   upper_color:
   - 179
-  - 73
-  - 1
+  - 255
+  - 255
 class_name: object
 depth_threshold:
-  max: 584
-  min: 557
+  max: 585
+  min: 561
 output:
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
 rois:
-<<<<<<< HEAD
-- height: 231
-  width: 244
-  x: 567
-  y: 156
-=======
-- height: 242
-  width: 216
-  x: 653
-  y: 166
->>>>>>> parent of 8b4500e... Initial commit: Added some Albumentation adjustments to improve recognition over different backgrounds
+- height: 251
+  width: 290
+  x: 565
+  y: 134
