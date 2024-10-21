@@ -9,22 +9,22 @@ capture:
 chroma_key:
   lower_color:
   - 0
-  - 58
+  - 0
   - 0
   upper_color:
   - 179
-  - 255
-  - 255
+  - 73
+  - 1
 class_name: object
 depth_threshold:
-  max: 628
-  min: 596
+  max: 584
+  min: 557
 output:
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
 rois:
-- height: 214
-  width: 237
-  x: 622
-  y: 197
+- height: 231
+  width: 244
+  x: 567
+  y: 156

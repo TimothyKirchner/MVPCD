@@ -41,8 +41,8 @@ def capture_images(config):
             print("Failed to capture image or depth map.")
             continue
 
-        image_filename = os.path.join(image_dir, f"image_{timestamp}.png")
-        depth_filename = os.path.join(depth_dir, f"depth_{timestamp}.npy")
+        image_filename = os.path.join(image_dir, f"image_{i}.png")
+        depth_filename = os.path.join(depth_dir, f"depth_{i}.npy")
 
         cv2.imwrite(image_filename, image)
         np.save(depth_filename, depth)

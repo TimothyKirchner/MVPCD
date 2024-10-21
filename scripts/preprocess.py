@@ -23,13 +23,13 @@ def load_config(config_path='config/config.yaml'):
 
 def preprocess_images(config):
     image_dir = os.path.join(project_root, config['output']['image_dir'])
-    processed_dir = os.path.join(image_dir, 'processed')
+    train_dir = os.path.join(project_root, 'data', 'images', 'train')
     depth_dir = os.path.join(project_root, config['output']['depth_dir'])
-    label_dir = os.path.join(project_root, config['output']['label_dir'])
+    label_dir = os.path.join(project_root, 'data', 'labels', 'train')
     debug_dir = os.path.join(project_root, 'data', 'debug')  # Add debug directory
 
-    if not os.path.exists(processed_dir):
-        os.makedirs(processed_dir)
+    if not os.path.exists(train_dir):
+        os.makedirs(train_dir)
     if not os.path.exists(label_dir):
         os.makedirs(label_dir)
     if not os.path.exists(debug_dir):  # Create debug directory if it doesn't exist
@@ -55,11 +55,18 @@ def preprocess_images(config):
                 print(f"Could not load image: {filepath}")
                 continue
 
+            # Save the unprocessed image into train_dir
+            unprocessed_path = os.path.join(train_dir, filename)
+            cv2.imwrite(unprocessed_path, image)
+            print(f"Unprocessed image saved: {unprocessed_path}")
+
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
             chroma_keyed = apply_chroma_key(hsv, lower_color, upper_color)
 
             # Correct depth filename matching
-            depth_filename = filename.replace('image_', 'depth_').replace('.png', '.npy').replace('.jpg', '.npy')
+            # Remove 'processed_' prefix if present
+            base_filename = filename.replace('processed_', '')
+            depth_filename = base_filename.replace('image_', 'depth_').replace('.png', '.npy').replace('.jpg', '.npy')
             depth_path = os.path.join(depth_dir, depth_filename)
             depth_map = load_depth_map(depth_path)
 
@@ -121,16 +128,18 @@ def preprocess_images(config):
                     cv2.waitKey(0)
                     cv2.destroyAllWindows()
 
-                # Save YOLO annotation
+                # Save YOLO annotation with processed image filename
                 yolo_annotation = convert_bbox_to_yolo(image.shape, largest_bbox)
-                base_filename = os.path.splitext(filename)[0]
-                label_path = os.path.join(label_dir, f"{base_filename}.txt")
+                base_filename_no_ext = os.path.splitext(filename)[0]
+                processed_base_filename = f"processed_{base_filename_no_ext}"
+                label_path = os.path.join(label_dir, f"{processed_base_filename}.txt")
                 with open(label_path, 'w') as f:
                     f.write(yolo_annotation)
                     print(f"Annotations saved for {label_path}")
 
-                # Save processed image
-                processed_path = os.path.join(processed_dir, filename)
+                # Save processed image with 'processed_' prefix
+                processed_filename = f'processed_{filename}'
+                processed_path = os.path.join(train_dir, processed_filename)
                 cv2.imwrite(processed_path, chroma_keyed)
                 print(f"Preprocessed image saved: {processed_path}")
 
