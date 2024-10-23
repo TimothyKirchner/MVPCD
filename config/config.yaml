@@ -1,3 +1,34 @@
+augmentation:
+  enabled: true
+  transformations:
+  - p: 0.5
+    type: HorizontalFlip
+  - p: 0.5
+    rotate_limit: 15
+    scale_limit: 0.1
+    shift_limit: 0.0625
+    type: ShiftScaleRotate
+  - brightness_limit:
+    - 0.1
+    - 0.3
+    contrast_limit:
+    - 0.1
+    - 0.3
+    p: 0.5
+    type: RandomBrightnessContrast
+  - hue_shift_limit: 20
+    p: 0.5
+    sat_shift_limit: 30
+    type: HueSaturationValue
+    val_shift_limit: 20
+  - height: 640
+    p: 0.5
+    type: RandomCrop
+    width: 640
+  - height: 640
+    p: 1.0
+    type: Resize
+    width: 640
 camera:
   fps: 30
   resolution:
@@ -9,22 +40,30 @@ capture:
 chroma_key:
   lower_color:
   - 0
-  - 58
+  - 54
   - 0
   upper_color:
   - 179
   - 255
   - 255
-class_name: object
-depth_threshold:
-  max: 585
-  min: 561
+class_names:
+- '1'
+depth_thresholds:
+  '1':
+    max: 582
+    min: 548
+image_counters:
+  '1': 1
 output:
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
+  train_image_dir: data/images/train
+  train_label_dir: data/labels/train
+  val_image_dir: data/images/val
+  val_label_dir: data/labels/val
 rois:
-- height: 251
-  width: 290
-  x: 565
-  y: 134
+- height: 203
+  width: 225
+  x: 440
+  y: 51

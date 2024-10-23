@@ -1,29 +1,28 @@
-# ~/Desktop/MVPCD/scripts/set_roi.py
-
+# scripts/set_roi.py
 import sys
 import os
-import cv2
-import yaml
-
-# Adjust sys.path to include the project root directory
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
+import cv2
+import yaml
 from utils.camera_utils import initialize_camera, capture_frame
 
 def load_config(config_path='config/config.yaml'):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     config_path = os.path.join(project_root, config_path)
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
 def save_config(config, config_path='config/config.yaml'):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     config_path = os.path.join(project_root, config_path)
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
 def set_rois(config):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     camera = initialize_camera(config)
     image, _ = capture_frame(camera)
     camera.close()

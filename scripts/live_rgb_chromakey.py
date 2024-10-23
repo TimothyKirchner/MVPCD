@@ -1,34 +1,32 @@
-# ~/Desktop/MVPCD/scripts/live_rgb_chromakey.py
-
+# scripts/live_rgb_chromakey.py
 import sys
 import os
-import cv2
-import numpy as np
-import yaml
-
-# Adjust sys.path to include the project root directory
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
+import cv2
+import numpy as np
+import yaml
 from utils.camera_utils import initialize_camera, capture_frame
 from utils.chroma_key import apply_chroma_key
 
 def load_config(config_path='config/config.yaml'):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     config_path = os.path.join(project_root, config_path)
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
 def save_config(config, config_path='config/config.yaml'):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     config_path = os.path.join(project_root, config_path)
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
 def live_rgb_chromakey(config):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     camera = initialize_camera(config)
 
-    # Initial chroma key values from config
     lower_h, lower_s, lower_v = config.get('chroma_key', {}).get('lower_color', [0, 0, 0])
     upper_h, upper_s, upper_v = config.get('chroma_key', {}).get('upper_color', [179, 255, 255])
 
@@ -46,7 +44,6 @@ def live_rgb_chromakey(config):
             if image is None:
                 continue
 
-            # Update chroma key values from trackbars
             lower_h = cv2.getTrackbarPos('Lower H', 'Live RGB Chroma-Keying')
             lower_s = cv2.getTrackbarPos('Lower S', 'Live RGB Chroma-Keying')
             lower_v = cv2.getTrackbarPos('Lower V', 'Live RGB Chroma-Keying')
@@ -71,7 +68,6 @@ def live_rgb_chromakey(config):
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
-                # Save the current chroma key values to config
                 config['chroma_key']['lower_color'] = [int(lower_h), int(lower_s), int(lower_v)]
                 config['chroma_key']['upper_color'] = [int(upper_h), int(upper_s), int(upper_v)]
                 save_config(config)
