@@ -1,9 +1,6 @@
 # scripts/train_model.py
 import sys
 import os
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 import yaml
 from ultralytics import YOLO
 
@@ -19,10 +16,13 @@ def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
     data_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
 
     # Initialize YOLOv8 model (e.g., yolov8n.pt for nano)
-    model = YOLO('yolov8n.pt')
+    model = YOLO('yolov8s.pt')
 
+    print(f"Using data configuration: {data_yaml_path}")
     project_path = os.path.join(project_root, 'runs', 'detect')
     print("Model will be saved to:", project_path)
+
+    # Start training with built-in augmentations
     model.train(
         data=data_yaml_path,
         epochs=epochs,
@@ -30,7 +30,8 @@ def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
         batch=batch_size,
         lr0=learning_rate,
         name='mvpcd_yolov8',
-        project=project_path
+        project=project_path,
+        augment=True  # Enable built-in augmentations
     )
 
     print("YOLOv8 model training completed.")

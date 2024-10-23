@@ -1,13 +1,11 @@
-# scripts/run_inference.py
+# scripts/test_inference.py
 import sys
 import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 import cv2
-import numpy as np
 import yaml
-from utils.camera_utils import initialize_camera, capture_frame
 from ultralytics import YOLO
 
 def load_config(config_path='config/config.yaml'):
@@ -17,43 +15,35 @@ def load_config(config_path='config/config.yaml'):
         config = yaml.safe_load(file)
     return config
 
-def run_inference(config):
+def test_inference(config):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    # Corrected model path
-    model_path = os.path.join(project_root, 'runs', 'detect', 'mvpcd_yolov8', 'weights', 'best.pt')
+    model_path = os.path.join(project_root, 'runs', 'yolov8_model5', 'weights', 'best.pt')
     if not os.path.exists(model_path):
         print(f"Trained model not found at {model_path}. Please ensure the model has been trained.")
         return
 
     model = YOLO(model_path)
 
-    camera = initialize_camera(config)
-    if camera is None:
-        print("Failed to initialize the camera.")
+    test_images_dir = os.path.join(project_root, 'data', 'test_images')
+    if not os.path.exists(test_images_dir):
+        print(f"Test images directory not found at {test_images_dir}. Please create it and add test images.")
         return
 
-    try:
-        print("Starting live inference. Press 'q' to exit.")
-        while True:
-            image, _ = capture_frame(camera)
+    for filename in os.listdir(test_images_dir):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            filepath = os.path.join(test_images_dir, filename)
+            image = cv2.imread(filepath)
             if image is None:
+                print(f"Could not load image: {filepath}")
                 continue
 
-            # Adjust confidence and IoU thresholds as needed
-            results = model(image, conf=0.25, iou=0.45, verbose=False)
+            results = model(image, verbose=False)
             annotated_frame = results[0].plot()
 
-            cv2.imshow("YOLOv8 Inference", annotated_frame)
-
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                print("Exiting inference.")
-                break
-
-    finally:
-        camera.close()
-        cv2.destroyAllWindows()
+            cv2.imshow(f"Inference on {filename}", annotated_frame)
+            cv2.waitKey(0)  # Press any key to proceed to the next image
+            cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     config = load_config()
-    run_inference(config)
+    test_inference(config)
