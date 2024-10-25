@@ -18,7 +18,7 @@ def load_config(config_path='config/config.yaml'):
         config = yaml.safe_load(file)
     return config
 
-def preprocess_images(config):
+def preprocess_images(config, processedimages, counter):
     splits = ['train', 'val']
     
     for split in splits:
@@ -54,6 +54,8 @@ def preprocess_images(config):
 
         for filename in os.listdir(image_dir):
             if filename.lower().endswith('.png') or filename.lower().endswith('.jpg'):
+                if filename in processedimages:
+                    continue
                 processed_files += 1
                 print(f"\nProcessing file: {filename}")  # Debug statement
                 filepath = os.path.join(image_dir, filename)
@@ -181,6 +183,11 @@ def preprocess_images(config):
                     annotated_bbox_image = draw_bounding_boxes(image.copy(), [largest_bbox], format='xywh')
                     cv2.imwrite(bboxes_debug_path, annotated_bbox_image)
                     print(f"Saved bounding box image: {bboxes_debug_path}")
+                processedimages.insert(counter, filename)
+                counter = counter + 1
+                print("added ", filename, " to processedimages array")
+                print("processed images: ", processedimages)
+                print("filename", filename)
 
     print(f"\nPreprocessing completed. Total files processed: {processed_files}")
 

@@ -1,81 +1,67 @@
 # scripts/main.py
 import sys
 import os
+import yaml
+import argparse
+import shutil
+
 # Adjust sys.path to include the project root directory
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-import yaml
-import argparse
-import cv2
-import numpy as np
-import time
+
+from utils.camera_utils import initialize_camera, capture_frame
 from capture import capture_images
 from set_roi import set_rois
 from preprocess import preprocess_images
-from annotate import annotate_images
-from verify_annotations import verify_annotations
 from train_model import train_yolo_model
-from live_depth_feed import live_depth_feed
-from live_rgb_chromakey import live_rgb_chromakey
 from run_inference import run_inference
 from split_dataset import split_dataset
 
 def load_config(config_path='config/config.yaml'):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    config_path = os.path.join(project_root, config_path)
-    with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+    """Load the YAML configuration file."""
+    config_full_path = os.path.join(project_root, config_path)
+    if not os.path.exists(config_full_path):
+        # Initialize with default structure if config doesn't exist
+        config = {
+            'class_names': [],
+            'image_counters': {},
+            'depth_thresholds': {}
+        }
+        save_config(config, config_path)
+    else:
+        with open(config_full_path, 'r') as file:
+            config = yaml.safe_load(file)
     return config
 
 def save_config(config, config_path='config/config.yaml'):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    config_path = os.path.join(project_root, config_path)
-    with open(config_path, 'w') as file:
+    """Save the YAML configuration file."""
+    config_full_path = os.path.join(project_root, config_path)
+    with open(config_full_path, 'w') as file:
         yaml.dump(config, file)
 
-def prompt_for_class_names(config):
-    class_names = []
+def prompt_for_class_name(config):
+    """Prompt the user to enter a single class name."""
     while True:
         class_name = input("Please enter the class name for the object: ").strip()
-        if class_name:
-            if class_name in config.get('class_names', []):
-                print(f"Class '{class_name}' already exists.")
-                continue
-            class_names.append(class_name)
-            config['class_names'].append(class_name)
-            config['image_counters'][class_name] = 1
-            # Initialize depth_threshold for the new class
-            if 'depth_thresholds' not in config:
-                config['depth_thresholds'] = {}
-            config['depth_thresholds'][class_name] = {'min': 500, 'max': 2000}  # Default values
-        else:
+        if not class_name:
             print("Class name cannot be empty.")
             continue
-        more = input("Do you want to add another class? (y/n): ").strip().lower()
-        if more != 'y':
-            break
+        if class_name in config.get('class_names', []):
+            print(f"Class '{class_name}' already exists.")
+            continue
+        return class_name
+
+def add_class(config, class_name):
+    """Add a new class to the configuration."""
+    config['class_names'].append(class_name)
+    config['image_counters'][class_name] = 1
+    # Initialize depth_threshold for the new class
+    config['depth_thresholds'][class_name] = {'min': 500, 'max': 2000}  # Default values
     save_config(config)
-    return class_names
-
-def prompt_for_training_params():
-    print("Enter training parameters (leave blank for defaults):")
-    epochs = input("Number of epochs (default 50): ").strip()
-    epochs = int(epochs) if epochs.isdigit() else 50
-
-    learning_rate = input("Learning rate (default 0.001): ").strip()
-    try:
-        learning_rate = float(learning_rate)
-    except:
-        learning_rate = 0.001
-
-    batch_size = input("Batch size (default 16): ").strip()
-    batch_size = int(batch_size) if batch_size.isdigit() else 16
-
-    return epochs, learning_rate, batch_size
 
 def update_mvpcd_yaml(config):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    """Update the mvpcd.yaml file with current class names."""
     mvpcd_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
     with open(mvpcd_yaml_path, 'w') as file:
         yaml.dump({
@@ -91,88 +77,137 @@ def update_mvpcd_yaml(config):
             'names': config.get('class_names', [])
         }, file)
 
+def delete_all_data():
+    """Delete all files in data directories but not the directories themselves."""
+    data_images_dir = os.path.join(project_root, 'data', 'images')
+    data_labels_dir = os.path.join(project_root, 'data', 'labels')
+    runs_dir = os.path.join(project_root, 'runs')
+
+    # Delete all files in data/images
+    if os.path.exists(data_images_dir):
+        for root, dirs, files in os.walk(data_images_dir):
+            for file in files:
+                os.remove(os.path.join(root, file))
+        print("Cleared 'data/images' directory.")
+
+    # Delete all files in data/labels
+    if os.path.exists(data_labels_dir):
+        for root, dirs, files in os.walk(data_labels_dir):
+            for file in files:
+                os.remove(os.path.join(root, file))
+        print("Cleared 'data/labels' directory.")
+
+    # Delete runs directory (we can delete this directory as it's regenerated)
+    if os.path.exists(runs_dir):
+        shutil.rmtree(runs_dir)
+        print("Deleted 'runs' directory.")
+
+    # Do not delete the config file, just reset class_names and related entries
+    config = load_config()
+    config['class_names'] = []
+    config['image_counters'] = {}
+    # Reset depth thresholds for existing classes
+    for class_name in config.get('class_names', []):
+        config['depth_thresholds'][class_name] = {'min': 500, 'max': 2000}
+    config['depth_thresholds'] = {}
+    save_config(config)
+    print("Reset class names and configurations in 'config.yaml'.")
+
 def main():
+    """Main function to run the MVPCD pipeline."""
     parser = argparse.ArgumentParser(description='MVPCD Pipeline')
     parser.add_argument('--configure', action='store_true', help='Configure settings')
+    counter = 0
+    processedimages = []
     args = parser.parse_args()
+
+    # Check if user wants to delete all data
+    delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
+    if delete_data == 'y':
+        delete_all_data()
 
     config = load_config()
 
-    if args.configure or not config.get('class_names'):
-        class_names = prompt_for_class_names(config)
-        update_mvpcd_yaml(config)
-    else:
-        class_names = config.get('class_names', [])
-
-    for class_name in class_names:
-        print(f"\n--- Processing Class: {class_name} ---")
-        
-        print("Starting Live Depth Viewer to adjust depth cutoff values...")
-        live_depth_feed_script = os.path.join(os.path.dirname(__file__), 'live_depth_feed.py')
-        os.system(f"python {live_depth_feed_script} {class_name}")
-        
-        print("Starting Live RGB Viewer to adjust chroma keying colors...")
-        live_rgb_chromakey_script = os.path.join(os.path.dirname(__file__), 'live_rgb_chromakey.py')
-        os.system(f"python {live_rgb_chromakey_script} {class_name}")
-        
-        print(f"Starting image and depth map capture for class '{class_name}'...")
-        capture_images(config, class_name)
-
-    print("\nDefining the Region of Interest (ROI)...")
-    set_roi_script = os.path.join(os.path.dirname(__file__), 'set_roi.py')
-    os.system(f"python {set_roi_script}")
-
-    # **Reordered Execution: Split Dataset Before Preprocessing**
-    print("Splitting dataset into training and validation sets...")
-    split_dataset_script = os.path.join(os.path.dirname(__file__), 'split_dataset.py')
-    os.system(f"python {split_dataset_script}")
-
-    print("Starting preprocessing of images...")
-    preprocess_script = os.path.join(os.path.dirname(__file__), 'preprocess.py')
-    os.system(f"python {preprocess_script}")
-
     while True:
-        print("\n--- Training YOLOv8 Model ---")
-        epochs, learning_rate, batch_size = prompt_for_training_params()
-        train_model_script = os.path.join(os.path.dirname(__file__), 'train_model.py')
-        os.system(f"python {train_model_script} {epochs} {learning_rate} {batch_size}")
-
-        try_inference = input("Do you want to add another class and record more objects? (y/n): ").strip().lower()
-        if try_inference == 'y':
-            new_class_names = prompt_for_class_names(config)
+        add_object = input("Do you want to add an object? (y/n): ").strip().lower()
+        if add_object == 'y':
+            # Prompt for class name
+            class_name = prompt_for_class_name(config)
+            add_class(config, class_name)
             update_mvpcd_yaml(config)
-            for class_name in new_class_names:
-                print(f"\n--- Processing Class: {class_name} ---")
-                
-                print("Starting Live Depth Viewer to adjust depth cutoff values...")
-                live_depth_feed_script = os.path.join(os.path.dirname(__file__), 'live_depth_feed.py')
-                os.system(f"python {live_depth_feed_script} {class_name}")
-                
-                print("Starting Live RGB Viewer to adjust chroma keying colors...")
-                live_rgb_chromakey_script = os.path.join(os.path.dirname(__file__), 'live_rgb_chromakey.py')
-                os.system(f"python {live_rgb_chromakey_script} {class_name}")
-                
-                print(f"Starting image and depth map capture for class '{class_name}'...")
-                capture_images(config, class_name)
-            print("Splitting dataset into training and validation sets...")
-            split_dataset_script = os.path.join(os.path.dirname(__file__), 'split_dataset.py')
-            os.system(f"python {split_dataset_script}")
-            print("Starting preprocessing of images for new classes...")
-            preprocess_script = os.path.join(os.path.dirname(__file__), 'preprocess.py')
-            os.system(f"python {preprocess_script}")
-        else:
+
+            # Start Live Depth Viewer
+            print("\nStarting Live Depth Viewer to adjust depth cutoff values...")
+            from live_depth_feed import live_depth_feed  # Import here to ensure updated path
+            live_depth_feed(config, class_name)
+
+            # Start Live RGB Viewer
+            print("\nStarting Live RGB Viewer to adjust chroma keying colors...")
+            from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
+            live_rgb_chromakey(config, class_name)
+
+            # Capture images
+            print(f"\nStarting image capture for class '{class_name}'...")
+            capture_images(config, class_name)
+
+            # Set ROI
+            print("\nSetting Region of Interest (ROI)...")
+            set_rois(config)
+
+            # Split dataset
+            print("\nSplitting dataset into training and validation sets...")
+            split_dataset(config)
+
+            # Preprocess images
+            print("\nPreprocessing images...")
+            preprocess_images(config, processedimages=processedimages, counter=counter)
+
+        elif add_object == 'n':
+            if not config.get('class_names'):
+                print("No classes available for training. Exiting.")
+                return
             break
+        else:
+            print("Please enter 'y' or 'n'.")
 
-    print("\nModel training completed.")
+    # Start Training
+    print("\n--- Training YOLOv8 Model ---")
+    epochs = input("Enter number of epochs (default 50): ").strip()
+    epochs = int(epochs) if epochs.isdigit() else 50
 
-    try_inference = input("Do you want to run the trained model for live inference? (y/n): ").strip().lower()
-    if try_inference == 'y':
-        run_inference_script = os.path.join(os.path.dirname(__file__), 'run_inference.py')
-        os.system(f"python {run_inference_script}")
-    else:
-        print("Inference skipped.")
+    learning_rate = input("Enter learning rate (default 0.001): ").strip()
+    try:
+        learning_rate = float(learning_rate)
+    except ValueError:
+        learning_rate = 0.001
 
-    print("Pipeline completed!")
+    batch_size = input("Enter batch size (default 16): ").strip()
+    batch_size = int(batch_size) if batch_size.isdigit() else 16
+
+    # Pass 'config' when calling 'train_yolo_model'
+    train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)
+
+    # Clear class names after training
+    config['class_names'] = []
+    config['image_counters'] = {}
+    config['depth_thresholds'] = {}
+    save_config(config)
+    print("\nClass names and configurations have been cleared after training.")
+
+    # Ask for Inference
+    while True:
+        run_inf = input("\nDo you want to run the trained model for live inference? (y/n): ").strip().lower()
+        if run_inf == 'y':
+            print("\n--- Running Live Inference ---")
+            run_inference()
+            break
+        elif run_inf == 'n':
+            print("Inference skipped.")
+            break
+        else:
+            print("Please enter 'y' or 'n'.")
+
+    print("\nPipeline completed!")
 
 if __name__ == "__main__":
     main()

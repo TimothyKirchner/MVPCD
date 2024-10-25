@@ -20,7 +20,7 @@ def load_config(config_path='config/config.yaml'):
 def run_inference(config):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     # Corrected model path
-    model_path = os.path.join(project_root, 'runs', 'detect', 'mvpcd_yolov8', 'weights', 'best.pt')
+    model_path = os.path.join(project_root, 'runs', 'detect', 'mvpcd_yolov82', 'weights', 'best.pt')
     if not os.path.exists(model_path):
         print(f"Trained model not found at {model_path}. Please ensure the model has been trained.")
         return

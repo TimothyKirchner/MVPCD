@@ -31,11 +31,11 @@ def live_depth_feed(config, class_name):
         return
 
     min_depth = config.get('depth_thresholds', {}).get(class_name, {}).get('min', 500)
-    max_depth = config.get('depth_thresholds', {}).get(class_name, {}).get('max', 2000)
+    max_depth = config.get('depth_thresholds', {}).get(class_name, {}).get('max', 1000)
 
     cv2.namedWindow("Live Depth Feed")
-    cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 10000, lambda x: None)
-    cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 10000, lambda x: None)
+    cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
+    cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
 
     print(f"\n--- Adjusting Depth Thresholds for Class '{class_name}' ---")
     print(f"Initial Min Depth: {min_depth} mm, Max Depth: {max_depth} mm\n")

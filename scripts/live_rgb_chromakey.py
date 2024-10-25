@@ -23,9 +23,10 @@ def save_config(config, config_path='config/config.yaml'):
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
-def live_rgb_chromakey(config):
+def live_rgb_chromakey(config, class_name):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     camera = initialize_camera(config)
+    chroma_key_settings = config.get('chroma_key_settings', {})
 
     lower_h, lower_s, lower_v = config.get('chroma_key', {}).get('lower_color', [0, 0, 0])
     upper_h, upper_s, upper_v = config.get('chroma_key', {}).get('upper_color', [179, 255, 255])
@@ -37,6 +38,7 @@ def live_rgb_chromakey(config):
     cv2.createTrackbar('Upper H', 'Live RGB Chroma-Keying', upper_h, 179, lambda x: None)
     cv2.createTrackbar('Upper S', 'Live RGB Chroma-Keying', upper_s, 255, lambda x: None)
     cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
+    print(f"Adjusting chroma key for class: {class_name}")
 
     try:
         while True:

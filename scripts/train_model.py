@@ -4,48 +4,48 @@ import os
 import yaml
 from ultralytics import YOLO
 
+# Adjust sys.path to include the project root directory
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 def load_config(config_path='config/config.yaml'):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    config_path = os.path.join(project_root, config_path)
-    with open(config_path, 'r') as file:
+    config_full_path = os.path.join(project_root, config_path)
+    with open(config_full_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
 def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    data_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
+    """
+    Train the YOLOv8 model with specified parameters.
+    """
+    # Ensure that mvpcd.yaml exists
+    mvpcd_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
+    if not os.path.exists(mvpcd_yaml_path):
+        print(f"Configuration file {mvpcd_yaml_path} does not exist.")
+        return
 
-    # Initialize YOLOv8 model (e.g., yolov8n.pt for nano)
-    model = YOLO('yolov8s.pt')
+    # Initialize the YOLO model
+    model = YOLO('yolov8s.pt')  # You can choose other variants
 
-    print(f"Using data configuration: {data_yaml_path}")
-    project_path = os.path.join(project_root, 'runs', 'detect')
-    print("Model will be saved to:", project_path)
-
-    # Start training with built-in augmentations
+    # Train the model
     model.train(
-        data=data_yaml_path,
+        data=mvpcd_yaml_path,
         epochs=epochs,
-        imgsz=640,
-        batch=batch_size,
         lr0=learning_rate,
-        name='mvpcd_yolov8',
-        project=project_path,
-        augment=True  # Enable built-in augmentations
+        batch=batch_size,
+        imgsz=640,
+        name='mvpcd_yolov82',
+        project=os.path.join(project_root, 'runs', 'detect'),
+        verbose=True
     )
 
-    print("YOLOv8 model training completed.")
-
 if __name__ == "__main__":
-    config = load_config()
     if len(sys.argv) != 4:
         print("Usage: python train_model.py [epochs] [learning_rate] [batch_size]")
-        sys.exit(1)
-    try:
+    else:
         epochs = int(sys.argv[1])
         learning_rate = float(sys.argv[2])
         batch_size = int(sys.argv[3])
-    except ValueError:
-        print("Invalid training parameters. Please ensure epochs and batch_size are integers and learning_rate is a float.")
-        sys.exit(1)
-    train_yolo_model(config, epochs, learning_rate, batch_size)
+        config = load_config()
+        train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)
