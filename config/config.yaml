@@ -43,10 +43,16 @@ chroma_key:
   - 0
   - 0
   upper_color:
-  - 168
-  - 166
-  - 200
+  - 179
+  - 4
+  - 255
 class_names: []
+debug:
+  bboxes: data/debug/bboxes
+  combined_mask: data/debug/combined_mask
+  contours: data/debug/contours
+  depthmask: data/debug/depthmask
+  rgbmask: data/debug/rgbmask
 depth_thresholds: {}
 image_counters: {}
 output:
@@ -58,7 +64,7 @@ output:
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
 rois:
-- height: 179
-  width: 178
-  x: 830
-  y: 50
+- height: 115
+  width: 116
+  x: 688
+  y: 105

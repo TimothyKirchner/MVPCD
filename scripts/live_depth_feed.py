@@ -69,7 +69,30 @@ def live_depth_feed(config, class_name):
                 save_config(config)
                 print(f"Depth thresholds for class '{class_name}' saved: Min={min_depth} mm, Max={max_depth} mm")
                 break
-
+            elif key == ord('r'):
+                # Reinitialize the camera and viewer
+                print("Reinitializing the camera and viewer...")
+                try:
+                    camera.close()
+                    camera = initialize_camera(config)
+                    if camera is None:
+                        print("Camera re-initialization failed.")
+                        break
+                    # Reinitialize the OpenCV window and trackbars
+                    cv2.destroyAllWindows()
+                    cv2.namedWindow("Live Depth Feed")
+                    cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
+                    cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
+                except Exception as e:
+                    print(f"Error during reinitialization: {e}")
+                    break
+            elif key == ord('v'):
+                # Close and reopen the OpenCV window
+                print("Closing and reopening the OpenCV window...")
+                cv2.destroyWindow("Live Depth Feed")
+                cv2.namedWindow("Live Depth Feed")
+                cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
+                cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
     finally:
         camera.close()
         cv2.destroyAllWindows()

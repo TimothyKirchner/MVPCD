@@ -15,7 +15,7 @@ def load_config(config_path='config/config.yaml'):
         config = yaml.safe_load(file)
     return config
 
-def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
+def train_yolo_model(config, epochs=100, learning_rate=0.0001, batch_size=8):
     """
     Train the YOLOv8 model with specified parameters.
     """
@@ -34,11 +34,17 @@ def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
         epochs=epochs,
         lr0=learning_rate,
         batch=batch_size,
-        imgsz=640,
-        name='mvpcd_yolov82',
+        imgsz=640,  # Reduced image size for faster training
+        name='mvpcd_yolov8',
         project=os.path.join(project_root, 'runs', 'detect'),
-        verbose=True
-    )
+        verbose=True,
+        augment=True,    # Enable data augmentation
+        pretrained=True, # Ensure transfer learning is utilized
+        weight_decay=0.00005,  # Add regularization
+        visualize=True,
+)
+    latest_model_path = model.ckpt_path  # Or use model.last
+    print("Path to the last trained model:", latest_model_path)
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:

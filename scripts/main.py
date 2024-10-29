@@ -77,30 +77,37 @@ def update_mvpcd_yaml(config):
             'names': config.get('class_names', [])
         }, file)
 
+def delete_files_in_directory(directory_path):
+   try:
+     files = os.listdir(directory_path)
+     for file in files:
+       file_path = os.path.join(directory_path, file)
+       if os.path.isfile(file_path):
+         os.remove(file_path)
+     print("All files deleted successfully.")
+   except OSError:
+     print("Error occurred while deleting files.")
+
 def delete_all_data():
-    """Delete all files in data directories but not the directories themselves."""
-    data_images_dir = os.path.join(project_root, 'data', 'images')
-    data_labels_dir = os.path.join(project_root, 'data', 'labels')
-    runs_dir = os.path.join(project_root, 'runs')
+    
+    configpath = os.path.join(project_root, "config/config.yaml")
+    
+    with open(configpath, "r") as file:
+        data = yaml.safe_load(file)
 
-    # Delete all files in data/images
-    if os.path.exists(data_images_dir):
-        for root, dirs, files in os.walk(data_images_dir):
-            for file in files:
-                os.remove(os.path.join(root, file))
-        print("Cleared 'data/images' directory.")
+    # Extract the 'output' section and store values in a list
+    dirs = list(data['output'].values())
 
-    # Delete all files in data/labels
-    if os.path.exists(data_labels_dir):
-        for root, dirs, files in os.walk(data_labels_dir):
-            for file in files:
-                os.remove(os.path.join(root, file))
-        print("Cleared 'data/labels' directory.")
+    for datadir in dirs:
+        print("deleting files in ", os.path.join(project_root, datadir))
+        delete_files_in_directory(os.path.join(project_root, datadir))
 
-    # Delete runs directory (we can delete this directory as it's regenerated)
-    if os.path.exists(runs_dir):
-        shutil.rmtree(runs_dir)
-        print("Deleted 'runs' directory.")
+    # Extract the 'output' section and store values in a list
+    debugdirs = list(data['debug'].values())
+
+    for debugdir in debugdirs:
+        print("deleting files in ", os.path.join(project_root, debugdir))
+        delete_files_in_directory(os.path.join(project_root, debugdir))
 
     # Do not delete the config file, just reset class_names and related entries
     config = load_config()
@@ -138,6 +145,7 @@ def main():
 
             # Start Live Depth Viewer
             print("\nStarting Live Depth Viewer to adjust depth cutoff values...")
+            print("\nPress r to restart viewer, press v to restart opencv window, press q to quit and save values")
             from live_depth_feed import live_depth_feed  # Import here to ensure updated path
             live_depth_feed(config, class_name)
 
@@ -172,17 +180,17 @@ def main():
 
     # Start Training
     print("\n--- Training YOLOv8 Model ---")
-    epochs = input("Enter number of epochs (default 50): ").strip()
-    epochs = int(epochs) if epochs.isdigit() else 50
+    epochs = input("Enter number of epochs (default 100): ").strip()
+    epochs = int(epochs) if epochs.isdigit() else 100
 
-    learning_rate = input("Enter learning rate (default 0.001): ").strip()
+    learning_rate = input("Enter learning rate (default 0.0001): ").strip()
     try:
         learning_rate = float(learning_rate)
     except ValueError:
-        learning_rate = 0.001
+        learning_rate = 0.0001
 
-    batch_size = input("Enter batch size (default 16): ").strip()
-    batch_size = int(batch_size) if batch_size.isdigit() else 16
+    batch_size = input("Enter batch size (default 8): ").strip()
+    batch_size = int(batch_size) if batch_size.isdigit() else 8
 
     # Pass 'config' when calling 'train_yolo_model'
     train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)
