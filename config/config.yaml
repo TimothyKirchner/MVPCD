@@ -13,8 +13,8 @@ chroma_key:
   - 0
   upper_color:
   - 179
-  - 4
   - 255
+  - 149
 class_names: []
 debug:
   bboxes: data/debug/bboxes
@@ -33,7 +33,7 @@ output:
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
 rois:
-- height: 115
-  width: 116
-  x: 688
-  y: 105
+- height: 113
+  width: 108
+  x: 655
+  y: 155

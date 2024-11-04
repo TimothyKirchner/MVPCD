@@ -2,8 +2,9 @@
 import pyzed.sl as sl
 import cv2
 import numpy as np
+import time
 
-def initialize_camera(config):
+def initialize_camera(config, max_retries=5):
     init_params = sl.InitParameters()
     init_params.camera_resolution = sl.RESOLUTION.HD720
     init_params.camera_fps = config['camera']['fps']
@@ -13,11 +14,19 @@ def initialize_camera(config):
     init_params.depth_maximum_distance = config.get('depth_threshold', {}).get('max', 2000)
 
     camera = sl.Camera()
-    status = camera.open(init_params)
-    if status != sl.ERROR_CODE.SUCCESS:
-        print(f"Failed to open camera: {status}")
-        return None
-    return camera
+    for attempt in range(1, max_retries + 1):
+        status = camera.open(init_params)
+        if status == sl.ERROR_CODE.SUCCESS:
+            print(f"Camera initialized successfully on attempt {attempt}.")
+            return camera
+        else:
+            print(f"Attempt {attempt}: Failed to open camera: {status}")
+            camera.close()
+            time.sleep(1)  # Wait a moment before retrying
+            camera = sl.Camera()  # Re-instantiate the camera object
+
+    print("Exceeded maximum retry attempts. Unable to initialize the camera.")
+    return None
 
 def capture_frame(camera):
     runtime_parameters = sl.RuntimeParameters()

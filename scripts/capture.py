@@ -58,6 +58,10 @@ def capture_images(config, class_name):
     config['image_counters'][class_name] = 1
 
     camera = initialize_camera(config)
+    if camera is None:
+        print("Unable to initialize the camera after multiple attempts. Exiting the program.")
+        sys.exit(1)
+
     num_images = config['capture']['num_images']
     interval = config['capture']['interval']
 
