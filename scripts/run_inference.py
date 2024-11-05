@@ -61,7 +61,7 @@ def run_inference(config):
                 continue
 
             # Adjust confidence and IoU thresholds as needed
-            results = model(image, conf=0.15, iou=0.65, verbose=False)
+            results = model(image, conf=0.25, iou=0.65, verbose=False)
             annotated_frame = results[0].plot()
 
             cv2.imshow("YOLOv8 Inference", annotated_frame)
