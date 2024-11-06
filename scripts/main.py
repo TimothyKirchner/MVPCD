@@ -11,7 +11,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from utils.camera_utils import initialize_camera, capture_frame
-from remove_greenscreen import adjust_green_thresholds, remove_green_background  # Import the new functions
+from remove_greenscreen import adjust_green_thresholds, remove_green_background, add_random_background  # Import the new functions
 from capture import capture_images
 from set_roi import set_rois
 from preprocess import preprocess_images
@@ -19,6 +19,7 @@ from train_model import train_yolo_model
 from incremental_train import incremental_train_yolo_model  # New script for incremental learning
 from run_inference import run_inference
 from split_dataset import split_dataset
+from archive_dataset import archive_dataset
 
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
@@ -203,6 +204,27 @@ def main():
         # Update mvpcd.yaml with new classes
         update_mvpcd_yaml(classes_to_add)
 
+        print("\nPlease adjust green screen thresholds and removing background from images via preview window")
+        adjust_green_thresholds(config)
+        remove_green_background(config)
+        print("Green screen removal completed.")
+        add_random_background(config)
+        print("Random backgrounds added to images.")
+
+
+        model_name = "mvpcd_yolov8"
+        directory = os.path.join(project_root, 'runs', 'detect')
+
+        while os.path.exists(os.path.join(directory, unique_name)):
+            # Append the counter to the base name, separated by an underscore
+            unique_name = f"{model_name}{counter}"
+            counter += 1
+
+        archiving = input("Do you want to archive the current dataset? y/n")
+        if archiving == "y":
+            archive_dataset(config, model_name)
+            print("archived dataset")
+        
         # Start Training
         print("\n--- Training YOLOv8 Model ---")
         epochs = input("Enter number of epochs (default 100): ").strip()
@@ -216,11 +238,6 @@ def main():
 
         batch_size = input("Enter batch size (default 8): ").strip()
         batch_size = int(batch_size) if batch_size.isdigit() else 8
-
-        print("\nAdjusting green screen thresholds and removing background from images...")
-        adjust_green_thresholds(config)
-        remove_green_background(config)
-        print("Green screen removal completed.")
 
         # Train the model
         train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)
@@ -307,6 +324,18 @@ def main():
             # Preprocess images
             print("\nPreprocessing images...")
             preprocess_images(config, processedimages=processedimages, counter=counter)
+
+        print("\nAdjusting green screen thresholds and removing background from images...")
+        adjust_green_thresholds(config)
+        remove_green_background(config)
+        print("Green screen removal completed.")
+        add_random_background(config)
+        print("Random backgrounds added to images.")
+        
+        archiving = input("Do you want to archive the current dataset? y/n")
+        if archiving == "y":
+            archive_dataset(config, model_name)
+            print("archived dataset")
 
         # Perform incremental training with knowledge distillation
         print("\n--- Incremental Training of YOLOv8 Model with Knowledge Distillation ---")

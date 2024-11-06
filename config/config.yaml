@@ -9,7 +9,7 @@ capture:
 chroma_key:
   lower_color:
   - 0
-  - 177
+  - 145
   - 0
   upper_color:
   - 179
@@ -26,20 +26,8 @@ debug:
   contours: data/debug/contours
   depthmask: data/debug/depthmask
   rgbmask: data/debug/rgbmask
-depth_thresholds:
-  blackthing:
-    max: 591
-    min: 500
-  smallthing:
-    max: 583
-    min: 560
-  whitething:
-    max: 569
-    min: 500
-image_counters:
-  blackthing: 51
-  smallthing: 51
-  whitething: 51
+depth_thresholds: {}
+image_counters: {}
 output:
   depth_dir: data/depth_maps
   image_dir: data/images
@@ -49,7 +37,7 @@ output:
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
 rois:
-- height: 200
-  width: 199
-  x: 564
-  y: 156
+- height: 144
+  width: 157
+  x: 567
+  y: 98
