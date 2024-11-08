@@ -9,25 +9,41 @@ capture:
 chroma_key:
   lower_color:
   - 0
-  - 145
+  - 80
   - 0
   upper_color:
   - 179
   - 255
   - 255
 class_names:
-- smallthing
-- woodthing
 - whitething
+- testthing
 - blackthing
+- smallthing
 debug:
   bboxes: data/debug/bboxes
   combined_mask: data/debug/combined_mask
   contours: data/debug/contours
   depthmask: data/debug/depthmask
   rgbmask: data/debug/rgbmask
-depth_thresholds: {}
-image_counters: {}
+depth_thresholds:
+  blackthing:
+    max: 617
+    min: 500
+  smallthing:
+    max: 606
+    min: 500
+  testthing:
+    max: 633
+    min: 500
+  whitething:
+    max: 594
+    min: 500
+image_counters:
+  blackthing: 51
+  smallthing: 51
+  testthing: 51
+  whitething: 51
 output:
   depth_dir: data/depth_maps
   image_dir: data/images
@@ -37,7 +53,7 @@ output:
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
 rois:
-- height: 144
-  width: 157
-  x: 567
-  y: 98
+- height: 190
+  width: 190
+  x: 572
+  y: 132

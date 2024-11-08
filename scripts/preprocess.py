@@ -23,8 +23,8 @@ def preprocess_images(config, processedimages, counter):
     
     for split in splits:
         print(f"\n--- Processing {split} set ---")
-        image_dir = os.path.join(project_root, config['output'][f'{split}_image_dir'])
-        label_dir = os.path.join(project_root, config['output'][f'{split}_label_dir'])
+        image_dir = os.path.join(project_root, config['output']["image_dir"])
+        label_dir = os.path.join(project_root, config['output'][f"label_dir"])
         depth_dir = os.path.join(project_root, config['output']['depth_dir'])
 
         # Define debug mask directories per split
@@ -52,7 +52,10 @@ def preprocess_images(config, processedimages, counter):
         areas = []
         processed_files = 0  # Counter to track processed files
 
+        print(image_dir)
+
         for filename in os.listdir(image_dir):
+            print(filename)
             if filename.lower().endswith('.png') or filename.lower().endswith('.jpg'):
                 if filename in processedimages:
                     continue

@@ -11,7 +11,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from utils.camera_utils import initialize_camera, capture_frame
-from remove_greenscreen import adjust_green_thresholds, remove_green_background, add_random_background  # Import the new functions
+from remove_greenscreen import replace_background_with_preset_color_using_contours
 from capture import capture_images
 from set_roi import set_rois
 from preprocess import preprocess_images
@@ -24,35 +24,64 @@ from archive_dataset import archive_dataset
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
     config_full_path = os.path.join(project_root, config_path)
-    if not os.path.exists(config_full_path):
-        # Initialize with default structure if config doesn't exist
-        config = {
-            'image_counters': {},
-            'depth_thresholds': {},
-            'output': {
-                'image_dir': 'data/images',
-                'label_dir': 'data/labels',
-                'depth_dir': 'data/depth_maps'
-            },
-            'debug': {
-                'rgbmask': 'data/debug/rgbmask',
-                'depthmask': 'data/debug/depthmask',
-                'combined_mask': 'data/debug/combined_mask',
-                'contours': 'data/debug/contours',
-                'bboxes': 'data/debug/bboxes'
+    config = {
+        'camera': {
+            'fps': 30,
+            'resolution': [1280, 720]
+        },
+        'capture': {
+            'interval': 0.25,
+            'num_images': 50
+        },
+        'chroma_key': {
+            'lower_color': [0, 80, 0],
+            'upper_color': [179, 255, 255]
+        },
+        'debug': {
+            'bboxes': 'data/debug/bboxes',
+            'combined_mask': 'data/debug/combined_mask',
+            'contours': 'data/debug/contours',
+            'depthmask': 'data/debug/depthmask',
+            'rgbmask': 'data/debug/rgbmask'
+        },
+        'depth_thresholds': {
+            'whitething': {
+                'max': 598,
+                'min': 500
             }
-        }
-        save_config(config, config_path)
-    else:
-        with open(config_full_path, 'r') as file:
-            config = yaml.safe_load(file)
+        },
+        'image_counters': {
+            'whitething': 51
+        },
+        'output': {
+            'depth_dir': 'data/depth_maps',
+            'image_dir': 'data/images',
+            'label_dir': 'data/labels',
+            'train_image_dir': 'data/images/train',
+            'train_label_dir': 'data/labels/train',
+            'val_image_dir': 'data/images/val',
+            'val_label_dir': 'data/labels/val'
+        },
+        'rois': [
+            {
+                'height': 200,
+                'width': 221,
+                'x': 524,
+                'y': 108
+            }
+        ],
+        'class_names': []  # Initialize as empty list
+    }
+    save_config(config, config_path)
+    print(f"Created default configuration at '{config_full_path}'.")
     return config
 
 def save_config(config, config_path='config/config.yaml'):
     """Save the YAML configuration file."""
     config_full_path = os.path.join(project_root, config_path)
     with open(config_full_path, 'w') as file:
-        yaml.dump(config, file)
+        yaml.dump(config, file, sort_keys=False)
+    print(f"Configuration saved to '{config_full_path}'.")
 
 def prompt_for_class_name(existing_classes):
     """Prompt the user to enter a single class name."""
@@ -160,7 +189,7 @@ def main():
             add_object = input("Do you want to add an object? (y/n): ").strip().lower()
             if add_object == 'y':
                 # Prompt for class name
-                existing_classes = []  # No classes yet since config is reset
+                existing_classes = config.get('class_names', [])
                 class_name = prompt_for_class_name(existing_classes)
                 classes_to_add.append(class_name)
                 print(f"Class '{class_name}' added for training.")
@@ -171,6 +200,9 @@ def main():
                 break
             else:
                 print("Please enter 'y' or 'n'.")
+
+        # **Corrected Line: Extend the list instead of appending**
+        config["class_names"].extend(classes_to_add)
 
         # Start Live Depth Viewer and RGB Chroma Key Adjusters for each new class
         for class_name in classes_to_add:
@@ -204,27 +236,24 @@ def main():
         # Update mvpcd.yaml with new classes
         update_mvpcd_yaml(classes_to_add)
 
-        print("\nPlease adjust green screen thresholds and removing background from images via preview window")
-        adjust_green_thresholds(config)
-        remove_green_background(config)
-        print("Green screen removal completed.")
-        add_random_background(config)
-        print("Random backgrounds added to images.")
-
+        replace_background_with_preset_color_using_contours(config)
+        print("Replaced Background as solid color.")
 
         model_name = "mvpcd_yolov8"
         directory = os.path.join(project_root, 'runs', 'detect')
 
-        while os.path.exists(os.path.join(directory, unique_name)):
+        while os.path.exists(os.path.join(directory, model_name)):
             # Append the counter to the base name, separated by an underscore
-            unique_name = f"{model_name}{counter}"
+            model_name = f"{model_name}_{counter}"
             counter += 1
 
-        archiving = input("Do you want to archive the current dataset? y/n")
+        archiving = input("Do you want to archive the current dataset? (y/n): ").strip().lower()
+        print("config: ", config)
+        print("model_name: ", model_name)
         if archiving == "y":
             archive_dataset(config, model_name)
-            print("archived dataset")
-        
+            print("Archived dataset")
+
         # Start Training
         print("\n--- Training YOLOv8 Model ---")
         epochs = input("Enter number of epochs (default 100): ").strip()
@@ -271,7 +300,7 @@ def main():
             add_new_class = input("Do you want to add a new class? (y/n): ").strip().lower()
             if add_new_class == 'y':
                 # Prompt for class name
-                existing_classes = []  # Existing classes are managed by the model, not config
+                existing_classes = config.get('class_names', [])
                 class_name = prompt_for_class_name(existing_classes)
                 classes_to_add.append(class_name)
                 print(f"Class '{class_name}' added for incremental training.")
@@ -295,6 +324,10 @@ def main():
         if not classes_to_add and not classes_to_remove:
             print("No classes to add or remove. Exiting.")
             return
+
+        # **Corrected Line: Extend the list instead of appending**
+        if classes_to_add:
+            config["class_names"].extend(classes_to_add)
 
         # Collect data for new classes
         for class_name in classes_to_add:
@@ -325,17 +358,16 @@ def main():
             print("\nPreprocessing images...")
             preprocess_images(config, processedimages=processedimages, counter=counter)
 
-        print("\nAdjusting green screen thresholds and removing background from images...")
-        adjust_green_thresholds(config)
-        remove_green_background(config)
-        print("Green screen removal completed.")
-        add_random_background(config)
-        print("Random backgrounds added to images.")
-        
-        archiving = input("Do you want to archive the current dataset? y/n")
+        # Update mvpcd.yaml with new classes
+        if classes_to_add:
+            update_mvpcd_yaml(classes_to_add)
+
+        replace_background_with_preset_color_using_contours(config)
+        print("Replaced Background with Solid Colors")
+        archiving = input("Do you want to archive the current dataset? y/n: ").strip().lower()
         if archiving == "y":
             archive_dataset(config, model_name)
-            print("archived dataset")
+            print("Archived dataset")
 
         # Perform incremental training with knowledge distillation
         print("\n--- Incremental Training of YOLOv8 Model with Knowledge Distillation ---")

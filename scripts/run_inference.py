@@ -39,7 +39,7 @@ def run_inference(config):
     # Corrected model path
     modeldir = os.path.join(project_root, 'runs', 'detect')
     model_path = os.path.join(project_root, "runs", "detect", find_most_recent_folder(modeldir), "weights", "best.pt")
-    # model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov85", "weights", "best.pt")
+    # model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov8", "weights", "best.pt")
 
     print("model path: ", model_path)
     if not os.path.exists(model_path):
