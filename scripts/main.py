@@ -16,6 +16,7 @@ from capture import capture_images
 from set_roi import set_rois
 from preprocess import preprocess_images
 from train_model import train_yolo_model
+from train_model_masks import train_yolo_model_masks
 from incremental_train import incremental_train_yolo_model  # New script for incremental learning
 from run_inference import run_inference
 from split_dataset import split_dataset
@@ -30,7 +31,7 @@ def load_config(config_path='config/config.yaml'):
             'resolution': [1280, 720]
         },
         'capture': {
-            'interval': 0.25,
+            'interval': 0.36,
             'num_images': 50
         },
         'chroma_key': {
@@ -184,6 +185,8 @@ def main():
         if delete_data == 'y':
             delete_all_data(config)
 
+        boxormask = input("Do you want to train with masks or bboxes? Input 1 for bbox, or 2 for masks: ")
+
         classes_to_add = []
         while True:
             add_object = input("Do you want to add an object? (y/n): ").strip().lower()
@@ -231,7 +234,13 @@ def main():
 
             # Preprocess images
             print("\nPreprocessing images...")
-            preprocess_images(config, processedimages=processedimages, counter=counter)
+
+            if boxormask == "2":
+                mode = "segmentation"
+            else:
+                mode = "box"
+
+            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode)
 
         # Update mvpcd.yaml with new classes
         update_mvpcd_yaml(classes_to_add)
@@ -266,10 +275,9 @@ def main():
             learning_rate = 0.0001
 
         batch_size = input("Enter batch size (default 8): ").strip()
-        batch_size = int(batch_size) if batch_size.isdigit() else 8
+        batch_size = int(batch_size) if batch_size.isdigit() else 8  
 
-        # Train the model
-        train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)
+        train_yolo_model_masks(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, task=boxormask)
 
         # Clear configurations after training
         config['image_counters'] = {}
@@ -283,6 +291,7 @@ def main():
         delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
         if delete_data == 'y':
             delete_all_data(config)
+
         model_name = input("Enter the name of the existing model to modify (e.g., 'mvpcd_yolov8'): ").strip()
         model_path = os.path.join(project_root, 'runs', 'detect', model_name, 'weights', 'best.pt')
         if not os.path.exists(model_path):
@@ -356,7 +365,7 @@ def main():
 
             # Preprocess images
             print("\nPreprocessing images...")
-            preprocess_images(config, processedimages=processedimages, counter=counter)
+            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode)
 
         # Update mvpcd.yaml with new classes
         if classes_to_add:
