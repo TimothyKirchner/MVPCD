@@ -218,6 +218,18 @@ def preprocess_images(config, processedimages, counter, mode):
                 # Threshold the combined mask to ensure it's binary
                 _, binary_mask = cv2.threshold(combined_mask, 1, 255, cv2.THRESH_BINARY)
 
+                # Create translated ROI mask in cropped image
+                translated_roi = {
+                    'x': roi_x_adjusted,
+                    'y': roi_y_adjusted,
+                    'width': roi_w_adjusted,
+                    'height': roi_h_adjusted
+                }
+                translated_roi_mask = get_roi_mask(cropped_image.shape, translated_roi)
+
+                # Combine translated ROI mask with the existing combined mask
+                final_mask = cv2.bitwise_and(binary_mask, translated_roi_mask * 255)
+
                 # Save masks
                 rgb_mask_path = os.path.join(rgbmask_dir, f"rgbmask_{filename}")
                 depth_mask_path_save = os.path.join(depthmask_dir, f"depthmask_{filename}")
@@ -231,8 +243,8 @@ def preprocess_images(config, processedimages, counter, mode):
                 print(f"Saved Depth mask: {depth_mask_path_save}")
                 print(f"Saved Combined mask: {combined_mask_path}")
 
-                # Find contours
-                contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # Find contours on the final mask
+                contours, _ = cv2.findContours(final_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
                     contours_image = cv2.drawContours(cropped_image.copy(), contours, -1, (0, 255, 0), 2)
                     cv2.imwrite(contours_path, contours_image)
