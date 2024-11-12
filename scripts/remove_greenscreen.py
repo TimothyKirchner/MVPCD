@@ -19,12 +19,16 @@ PRESET_COLORS = [
     [240, 240, 240],  # Light Gray
     [200, 200, 200],  # Medium Gray
     [175, 175, 175],  # Darker Gray
+    [200, 200, 200],  # Medium Gray
+    [175, 175, 175],  # Darker Gray
     [128, 128, 128],  # Dark Gray
     [0, 175, 0],      # Green
-    [0, 125, 255],     # Light Blue
+    [0, 175, 0],      # Green
+    [0, 128, 0],      # Dark Green
+    [0, 128, 0],      # Dark Green
+    [0, 125, 255],    # Light Blue
     [0, 0, 255],      # Blue
     [192, 192, 192],  # Silver
-    [0, 128, 0],      # Dark Green
     [100, 0, 0]       # Dark Red
     # Add more colors as needed
 ]
@@ -58,10 +62,10 @@ def validate_config(config):
             raise ValueError(f"Missing '{key}' in configuration.")
     # Further validation as needed
 
-def replace_background_with_preset_color_using_contours(config):
+def replace_background_with_preset_color_using_contours(config, class_name):
     """
     Replace the background of each image with a preset solid color
-    using filled contours from preprocess.py.
+    using filled contours from preprocess.py for a specific class.
     """
     # Set up logging
     logging.basicConfig(
@@ -101,63 +105,68 @@ def replace_background_with_preset_color_using_contours(config):
             print(f"Image directory does not exist: {dir_path}. Skipping.")
             continue
 
-        for filename in os.listdir(dir_path):
-            if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                continue  # Skip non-image files
+        # Get list of image files starting with class_name
+        image_files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f.startswith(class_name)]
 
+        for filename in image_files:
             image_path = os.path.join(dir_path, filename)
-
-            # Initialize a variable to accumulate masks for all classes in this image
-            accumulated_mask = None
-
-            for class_name in class_names:
-                # Corrected contour filename construction
-                contour_filename = f"contours_{os.path.splitext(filename)[0]}.png.png"
-                contour_path = os.path.join(contours_dir, contour_filename)
-                print("contour_path: ", contour_path)
-
-                if not os.path.exists(contour_path):
-                    logging.warning(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
-                    print(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
-                    continue
-
-                # Read the contour image
-                contour_image = cv2.imread(contour_path, cv2.IMREAD_COLOR)
-                if contour_image is None:
-                    logging.error(f"Could not read contour image: {contour_path}. Skipping.")
-                    print(f"Could not read contour image: {contour_path}. Skipping.")
-                    continue
-
-                # Define green color range
-                lower_green = np.array([0, 200, 0])
-                upper_green = np.array([100, 255, 100])
-                mask_contour = cv2.inRange(contour_image, lower_green, upper_green)
-
-                # Find contours from the mask
-                contours, _ = cv2.findContours(mask_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-                if not contours:
-                    logging.warning(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
-                    print(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
-                    continue
-
-                # Create a mask for this class
-                if accumulated_mask is None:
-                    accumulated_mask = np.zeros((contour_image.shape[0], contour_image.shape[1]), dtype=np.uint8)
-
-                # Draw filled contours on the accumulated mask
-                cv2.drawContours(accumulated_mask, contours, -1, (255), thickness=cv2.FILLED)
-
-            if accumulated_mask is None:
-                logging.warning(f"No valid contours found for image '{filename}'. Skipping.")
-                print(f"No valid contours found for image '{filename}'. Skipping.")
-                continue
 
             # Read the original image
             image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
             if image is None:
                 logging.error(f"Could not read image: {image_path}. Skipping.")
                 print(f"Could not read image: {image_path}. Skipping.")
+                continue
+
+            # Initialize a variable to accumulate masks for all classes in this image
+            accumulated_mask = None
+
+            # Process only the specified class
+            # Construct contour filename
+            contour_filename = f"contours_{filename}"
+            contour_path = os.path.join(contours_dir, contour_filename)
+            print("contour_path: ", contour_path)
+
+            if not os.path.exists(contour_path):
+                logging.warning(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
+                print(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
+                continue
+
+            # Read the contour image
+            contour_image = cv2.imread(contour_path, cv2.IMREAD_COLOR)
+            if contour_image is None:
+                logging.error(f"Could not read contour image: {contour_path}. Skipping.")
+                print(f"Could not read contour image: {contour_path}. Skipping.")
+                continue
+
+            # Ensure contour image matches the size of the original image
+            if contour_image.shape[:2] != image.shape[:2]:
+                logging.warning(f"Contour image size {contour_image.shape[:2]} does not match image size {image.shape[:2]}. Resizing contour image.")
+                print(f"Contour image size {contour_image.shape[:2]} does not match image size {image.shape[:2]}. Resizing contour image.")
+                contour_image = cv2.resize(contour_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+            # Define green color range
+            lower_green = np.array([0, 200, 0])
+            upper_green = np.array([100, 255, 100])
+            mask_contour = cv2.inRange(contour_image, lower_green, upper_green)
+
+            # Find contours from the mask
+            contours, _ = cv2.findContours(mask_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if not contours:
+                logging.warning(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
+                print(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
+                continue
+
+            # Create a mask for this class
+            accumulated_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+
+            # Draw filled contours on the accumulated mask
+            cv2.drawContours(accumulated_mask, contours, -1, (255), thickness=cv2.FILLED)
+
+            if accumulated_mask is None:
+                logging.warning(f"No valid contours found for image '{filename}'. Skipping.")
+                print(f"No valid contours found for image '{filename}'. Skipping.")
                 continue
 
             # Save the accumulated mask for debugging
@@ -232,17 +241,20 @@ def replace_background_with_preset_color_using_contours(config):
                 logging.error(f"Failed to save image: {save_path}")
                 print(f"Failed to save image: {save_path}")
 
-    def main():
-        """
-        Main function to replace backgrounds using filled contours.
-        """
-        config = load_config()
-        try:
-            validate_config(config)
-        except ValueError as e:
-            print(f"Configuration Error: {e}")
-            sys.exit(1)
-        replace_background_with_preset_color_using_contours(config)
+def main():
+    """
+    Main function to replace backgrounds using filled contours.
+    """
+    config = load_config()
+    try:
+        validate_config(config)
+    except ValueError as e:
+        print(f"Configuration Error: {e}")
+        sys.exit(1)
 
-    if __name__ == "__main__":
-        main()
+    # For standalone testing, replace 'your_class_name' with an actual class name
+    class_name = 'your_class_name'  # Replace with actual class name
+    replace_background_with_preset_color_using_contours(config, class_name)
+
+if __name__ == "__main__":
+    main()
