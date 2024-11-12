@@ -18,17 +18,14 @@ PRESET_COLORS = [
     [255, 255, 255],  # White
     [240, 240, 240],  # Light Gray
     [200, 200, 200],  # Medium Gray
+    [175, 175, 175],  # Darker Gray
     [128, 128, 128],  # Dark Gray
-    [255, 0, 0],      # Red
-    [0, 255, 0],      # Green
+    [0, 175, 0],      # Green
+    [0, 125, 255],     # Light Blue
     [0, 0, 255],      # Blue
-    [255, 255, 0],    # Yellow
-    [0, 255, 255],    # Cyan
-    [255, 0, 255],    # Magenta
     [192, 192, 192],  # Silver
-    [128, 0, 0],      # Maroon
     [0, 128, 0],      # Dark Green
-    [0, 0, 128],      # Navy
+    [100, 0, 0]       # Dark Red
     # Add more colors as needed
 ]
 
@@ -115,8 +112,9 @@ def replace_background_with_preset_color_using_contours(config):
 
             for class_name in class_names:
                 # Corrected contour filename construction
-                contour_filename = f"contours_{class_name}_{os.path.splitext(filename)[0]}.png"
-                contour_path = os.path.join(contours_dir, contour_filename, ".png")
+                contour_filename = f"contours_{os.path.splitext(filename)[0]}.png.png"
+                contour_path = os.path.join(contours_dir, contour_filename)
+                print("contour_path: ", contour_path)
 
                 if not os.path.exists(contour_path):
                     logging.warning(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
@@ -245,7 +243,6 @@ def replace_background_with_preset_color_using_contours(config):
             print(f"Configuration Error: {e}")
             sys.exit(1)
         replace_background_with_preset_color_using_contours(config)
-        print(f"Total images processed: {processed_count}")
 
     if __name__ == "__main__":
         main()
