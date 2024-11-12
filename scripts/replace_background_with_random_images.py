@@ -1,4 +1,4 @@
-# scripts/remove_greenscreen.py
+# scripts/replace_background_with_random_images.py
 
 import sys
 import os
@@ -12,22 +12,6 @@ import logging
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# Preset colors commonly found in workplace environments
-PRESET_COLORS = [
-    [255, 255, 255],  # White
-    [240, 240, 240],  # Light Gray
-    [200, 200, 200],  # Medium Gray
-    [175, 175, 175],  # Darker Gray
-    [128, 128, 128],  # Dark Gray
-    [0, 175, 0],      # Green
-    [0, 128, 0],      # Dark Green
-    [0, 125, 255],    # Light Blue
-    [0, 0, 255],      # Blue
-    [192, 192, 192],  # Silver
-    [100, 0, 0]       # Dark Red
-    # Add more colors as needed
-]
 
 def load_config(config_path='config/config.yaml'):
     """
@@ -58,14 +42,15 @@ def validate_config(config):
             raise ValueError(f"Missing '{key}' in configuration.")
     # Further validation as needed
 
-def replace_background_with_preset_color_using_contours(config, class_name):
+def replace_background_with_random_images(config, class_name):
     """
-    Replace the background of each image with a preset solid color
-    using filled contours from preprocess.py for a specific class.
+    Replace the background of each image with random background images
+    from the backgrounds folder using filled contours from preprocess.py
+    for a specific class.
     """
     # Set up logging
     logging.basicConfig(
-        filename=os.path.join(project_root, 'scripts', 'remove_greenscreen.log'),
+        filename=os.path.join(project_root, 'scripts', 'replace_background_with_random_images.log'),
         level=logging.INFO,
         format='%(asctime)s:%(levelname)s:%(message)s'
     )
@@ -74,7 +59,8 @@ def replace_background_with_preset_color_using_contours(config, class_name):
     train_dir = os.path.join(project_root, config['output']['train_image_dir'])
     val_dir = os.path.join(project_root, config['output']['val_image_dir'])
     contours_dir = os.path.join(project_root, config['debug']['contours'])
-    coloring_mask_dir = os.path.join(project_root, 'data', 'debug', 'coloringmask')
+    backgrounds_dir = os.path.join(project_root, 'data', 'backgrounds')
+    coloring_mask_dir = os.path.join(project_root, 'data', 'debug', 'coloringmask_random_bg')
 
     dirs = [train_dir, val_dir]
 
@@ -86,7 +72,23 @@ def replace_background_with_preset_color_using_contours(config, class_name):
         print(f"Contours directory does not exist: {contours_dir}")
         sys.exit(1)
 
-    processed_count = 0
+    if not os.path.exists(backgrounds_dir):
+        logging.error(f"Backgrounds directory does not exist: {backgrounds_dir}")
+        print(f"Backgrounds directory does not exist: {backgrounds_dir}")
+        sys.exit(1)
+
+    # Load background images
+    background_images = []
+    for bg_filename in os.listdir(backgrounds_dir):
+        if bg_filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            bg_path = os.path.join(backgrounds_dir, bg_filename)
+            bg_image = cv2.imread(bg_path)
+            if bg_image is not None:
+                background_images.append(bg_image)
+    if not background_images:
+        logging.error("No background images found in backgrounds directory.")
+        print("No background images found in backgrounds directory.")
+        sys.exit(1)
 
     for dir_path in dirs:
         if not os.path.exists(dir_path):
@@ -133,7 +135,7 @@ def replace_background_with_preset_color_using_contours(config, class_name):
                 print(f"Contour image size {contour_image.shape[:2]} does not match image size {image.shape[:2]}. Resizing contour image.")
                 contour_image = cv2.resize(contour_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
-            # Define green color range
+            # Define green color range to extract the mask
             lower_green = np.array([0, 200, 0])
             upper_green = np.array([100, 255, 100])
             mask_contour = cv2.inRange(contour_image, lower_green, upper_green)
@@ -178,15 +180,24 @@ def replace_background_with_preset_color_using_contours(config, class_name):
                 print(f"Unsupported image format for '{filename}'. Skipping.")
                 continue
 
-            # Select a preset color from the list
-            color = random.choice(PRESET_COLORS)
-            background = np.full(bgr.shape, color, dtype=np.uint8)
+            # Select a random background image
+            bg_image = random.choice(background_images)
+            bg_height, bg_width = bg_image.shape[:2]
+
+            # Resize background to match the image size
+            bg_resized = cv2.resize(bg_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
+
+            # Ensure background is the same size as the original image
+            if bg_resized.shape[:2] != image.shape[:2]:
+                logging.warning(f"Background image resized to {bg_resized.shape[:2]} does not match image size {image.shape[:2]}.")
+                print(f"Background image resized to {bg_resized.shape[:2]} does not match image size {image.shape[:2]}.")
+                continue
 
             # Create a 3-channel mask for background
             mask_inv_3ch = cv2.merge([mask_inv, mask_inv, mask_inv])
 
             # Extract the background using the inverted mask
-            background_part = cv2.bitwise_and(background, mask_inv_3ch)
+            background_part = cv2.bitwise_and(bg_resized, mask_inv_3ch)
 
             # Extract the object using the mask
             mask_3ch = cv2.merge([accumulated_mask, accumulated_mask, accumulated_mask])
@@ -222,16 +233,15 @@ def replace_background_with_preset_color_using_contours(config, class_name):
                 success = cv2.imwrite(save_path, composite)
 
             if success:
-                logging.info(f"Replaced background with preset color {color} for image: {save_path}")
-                print(f"Replaced background with preset color {color} for image: {save_path}")
-                processed_count += 1
+                logging.info(f"Replaced background with random image for: {save_path}")
+                print(f"Replaced background with random image for: {save_path}")
             else:
                 logging.error(f"Failed to save image: {save_path}")
                 print(f"Failed to save image: {save_path}")
 
 def main():
     """
-    Main function to replace backgrounds using filled contours.
+    Main function to replace backgrounds using random images.
     """
     config = load_config()
     try:
@@ -243,7 +253,7 @@ def main():
     # You need to provide class_name when calling the function
     # For standalone testing, replace 'your_class_name' with an actual class name
     class_name = 'your_class_name'  # Replace with actual class name
-    replace_background_with_preset_color_using_contours(config, class_name)
+    replace_background_with_random_images(config, class_name)
 
 if __name__ == "__main__":
     main()

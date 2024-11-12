@@ -35,7 +35,7 @@ def parse_arguments():
     parser.add_argument(
         '--learning_rate',
         type=float,
-        default=0.0001,
+        default=0.00015,
         help="Initial learning rate."
     )
     parser.add_argument(
@@ -46,7 +46,7 @@ def parse_arguments():
     )
     return parser.parse_args()
 
-def train_yolo_model(config, task, epochs=100, learning_rate=0.0001, batch_size=8):
+def train_yolo_model_masks(config, task, epochs=100, learning_rate=0.0001, batch_size=8):
     """
     Train the YOLOv8 model (detection or segmentation) with specified parameters.
     """
@@ -72,13 +72,13 @@ def train_yolo_model(config, task, epochs=100, learning_rate=0.0001, batch_size=
         epochs=epochs,
         lr0=learning_rate,
         batch=batch_size,
-        imgsz=640,  # Adjust image size as needed
+        imgsz=480,  # Adjust image size as needed
         name=project_name,
         project=os.path.join(project_root, 'runs', task_label),
         verbose=True,
         augment=True,    # Enable data augmentation
         pretrained=True, # Use pre-trained weights
-        weight_decay=0.0005,  # Adjust regularization if needed
+        weight_decay=0.00005,  # Adjust regularization if needed
         cache=True,      # Cache data for faster training
         task=task_label, # Specify the task
         optimizer='AdamW',  # Use AdamW optimizer
@@ -98,12 +98,12 @@ def train_yolo_model(config, task, epochs=100, learning_rate=0.0001, batch_size=
     print("Path to the last trained model:", latest_model_path)
 
 if __name__ == "__main__":
-    args = parse_arguments()
+    # args = parse_arguments()
     config = load_config()
-    train_yolo_model(
+    train_yolo_model_masks(
         config,
-        task=args.task,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        batch_size=args.batch_size
+        task="detection",
+        epochs=100,
+        learning_rate=0.00015,
+        batch_size=6
     )

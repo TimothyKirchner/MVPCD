@@ -21,6 +21,8 @@ from incremental_train import incremental_train_yolo_model  # New script for inc
 from run_inference import run_inference
 from split_dataset import split_dataset
 from archive_dataset import archive_dataset
+from capture_backgrounds import capture_backgrounds
+from replace_background_with_random_images import replace_background_with_random_images
 
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
@@ -178,6 +180,19 @@ def main():
         else:
             print("Invalid input. Please enter 1 or 2.")
 
+    while True:
+        choice = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? 1 generally leads to better model perforance in your specific workspace. Enter 1 or 2: ").strip()
+        if choice == '1':
+            capture_backgrounds(config, max_retries=5)
+            take_background = True
+            break
+        elif choice == '2':
+            take_background = False
+            break
+        else:
+            print("Invalid input. Please enter 1 or 2.")
+    
+
     if train_new_model:
         # Proceed with existing pipeline for training a new model
         # Optionally delete all existing data
@@ -230,7 +245,7 @@ def main():
 
             # Split dataset
             print("\nSplitting dataset into training and validation sets...")
-            split_dataset(config)
+            split_dataset(config, class_name=class_name)
 
             # Preprocess images
             print("\nPreprocessing images...")
@@ -240,13 +255,18 @@ def main():
             else:
                 mode = "box"
 
-            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode)
+            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
+
+            if take_background:
+                replace_background_with_random_images(config, class_name=class_name)
+                print("Replacing Background with Mosaic of Workspace.")
+            else:
+                replace_background_with_preset_color_using_contours(config, class_name=class_name)
+                print("Replaced Background as solid color.")
 
         # Update mvpcd.yaml with new classes
         update_mvpcd_yaml(classes_to_add)
 
-        replace_background_with_preset_color_using_contours(config)
-        print("Replaced Background as solid color.")
 
         model_name = "mvpcd_yolov8"
         directory = os.path.join(project_root, 'runs', 'detect')
@@ -361,18 +381,23 @@ def main():
 
             # Split dataset
             print("\nSplitting dataset into training and validation sets...")
-            split_dataset(config)
+            split_dataset(config, class_name=class_name)
 
             # Preprocess images
             print("\nPreprocessing images...")
-            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode)
+            preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
+
+            if take_background:
+                replace_background_with_random_images(config, class_name=class_name)
+                print("Replacing Background with Mosaic of Workspace.")
+            else:
+                replace_background_with_preset_color_using_contours(config, class_name=class_name)
+                print("Replaced Background as solid color.")
 
         # Update mvpcd.yaml with new classes
         if classes_to_add:
             update_mvpcd_yaml(classes_to_add)
 
-        replace_background_with_preset_color_using_contours(config)
-        print("Replaced Background with Solid Colors")
         archiving = input("Do you want to archive the current dataset? y/n: ").strip().lower()
         if archiving == "y":
             archive_dataset(config, model_name)

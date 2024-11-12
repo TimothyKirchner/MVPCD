@@ -38,8 +38,9 @@ def run_inference(config):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     # Corrected model path
     modeldir = os.path.join(project_root, 'runs', 'detect')
-    model_path = os.path.join(project_root, "runs", "detect", find_most_recent_folder(modeldir), "weights", "best.pt")
-    # model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov8", "weights", "best.pt")
+    # model_path = os.path.join(project_root, "runs", "detect", find_most_recent_folder(modeldir), "weights", "best.pt")
+    # model_path = os.path.join(project_root, "runs", "segment", "mvpcd_yolov8_seg5", "weights", "best.pt")
+    model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov8_detect", "weights", "best.pt")
 
     print("model path: ", model_path)
     if not os.path.exists(model_path):
