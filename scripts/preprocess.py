@@ -1,30 +1,42 @@
 # scripts/preprocess.py
+
 import sys
 import os
-
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
+import argparse
 import cv2
 import numpy as np
 import yaml
 from utils.chroma_key import apply_chroma_key
 from utils.depth_processing import process_depth, load_depth_map
-from utils.bbox_utils import convert_bbox_to_yolo, draw_bounding_boxes
+
+# Adjust sys.path to include the project root directory
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 def load_config(config_path='config/config.yaml'):
     with open(os.path.join(project_root, config_path), 'r') as file:
         config = yaml.safe_load(file)
     return config
 
-def preprocess_images(config, processedimages, counter):
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Preprocess images for YOLOv8 training.")
+    parser.add_argument(
+        '--mode',
+        type=str,
+        choices=['bbox', 'segmentation'],
+        default='bbox',
+        help="Choose label generation mode: 'bbox' for bounding boxes only or 'segmentation' for bounding boxes and masks."
+    )
+    return parser.parse_args()
+
+def preprocess_images(config, processedimages, counter, mode):
     splits = ['train', 'val']
-    
+
     for split in splits:
         print(f"\n--- Processing {split} set ---")
-        image_dir = os.path.join(project_root, config['output']["image_dir"])
-        label_dir = os.path.join(project_root, config['output'][f"label_dir"])
+        image_dir = os.path.join(project_root, config['output'][f"{split}_image_dir"])
+        label_dir = os.path.join(project_root, config['output'][f"{split}_label_dir"])
         depth_dir = os.path.join(project_root, config['output']['depth_dir'])
 
         # Define debug mask directories per split
@@ -32,11 +44,12 @@ def preprocess_images(config, processedimages, counter):
         rgbmask_dir = os.path.join(debug_dir, 'rgbmask')
         depthmask_dir = os.path.join(debug_dir, 'depthmask')
         combinedmask_dir = os.path.join(debug_dir, 'combined_mask')
-        contours_dir = os.path.join(debug_dir, 'contours')  # New contours directory
-        bboxes_dir = os.path.join(debug_dir, 'bboxes')      # New bboxes directory
+        contours_dir = os.path.join(debug_dir, 'contours')       # Contours directory
+        bboxes_dir = os.path.join(debug_dir, 'bboxes')           # Bounding boxes directory
+        maskinyolo_dir = os.path.join(debug_dir, 'maskinyolo')   # Mask visualization directory
 
         # Create directories if they don't exist
-        for directory in [image_dir, label_dir, rgbmask_dir, depthmask_dir, combinedmask_dir, contours_dir, bboxes_dir]:
+        for directory in [image_dir, label_dir, rgbmask_dir, depthmask_dir, combinedmask_dir, contours_dir, bboxes_dir, maskinyolo_dir]:
             if not os.path.exists(directory):
                 os.makedirs(directory)
 
@@ -49,14 +62,12 @@ def preprocess_images(config, processedimages, counter):
         class_names = config.get('class_names', [])
         class_id_map = {name: idx for idx, name in enumerate(class_names)}
 
-        areas = []
         processed_files = 0  # Counter to track processed files
 
-        print(image_dir)
+        print(f"Image directory: {image_dir}")
 
         for filename in os.listdir(image_dir):
-            print(filename)
-            if filename.lower().endswith('.png') or filename.lower().endswith('.jpg'):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                 if filename in processedimages:
                     continue
                 processed_files += 1
@@ -121,79 +132,118 @@ def preprocess_images(config, processedimages, counter):
                         roi_mask[y:y+h, x:x+w] = 255
                     combined_mask = cv2.bitwise_and(combined_mask, roi_mask)
 
-                # Find contours
-                contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # Threshold the combined mask to ensure it's binary
+                _, binary_mask = cv2.threshold(combined_mask, 1, 255, cv2.THRESH_BINARY)
+
+                # Find contours on the binary mask
+                contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
                     contours_image = cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 2)
                     cv2.imwrite(contours_path, contours_image)
                     print(f"Saved contours: {contours_path}")
                 else:
                     print(f"No contours found for {filename}.")
+                    if mode == 'segmentation':
+                        # Skip images without contours if in segmentation mode
+                        continue
 
-                # Extract bounding boxes from contours
-                bounding_boxes = []
+                # Initialize a list to store annotations
+                annotations = []
+
+                # Prepare mask visualization
+                mask_visualization = image.copy()
+
+                # Process each contour
                 for contour in contours:
+                    # Filter out small contours
+                    if cv2.contourArea(contour) < 100:
+                        continue
+
+                    # Bounding box
                     x, y, w, h = cv2.boundingRect(contour)
-                    if cv2.contourArea(contour) > 100:  # Filter out small contours
-                        bounding_boxes.append((x, y, w, h))
 
-                if not bounding_boxes:
-                    print(f"No bounding boxes found within ROI for {filename}.")
-                    continue
+                    # Convert bounding box to normalized coordinates
+                    x_center = (x + w / 2) / img_width
+                    y_center = (y + h / 2) / img_height
+                    width_norm = w / img_width
+                    height_norm = h / img_height
 
-                # Select the largest bounding box based on area
-                largest_bbox = max(bounding_boxes, key=lambda bbox: bbox[2] * bbox[3], default=None)
-                if largest_bbox:
-                    x, y, w, h = largest_bbox
-                    current_area = w * h
-                    areas.append(current_area)
-                    average_area = sum(areas) / len(areas) if areas else 0
-                    deviation_threshold = 0.2  # 20%
-
-                    # Check for anomalous bounding boxes (optional)
-                    if average_area > 0 and abs(current_area - average_area) / average_area > deviation_threshold:
-                        annotated_image = draw_bounding_boxes(image.copy(), [largest_bbox], format='xywh')
-                        cv2.imshow("Anomalous Bounding Box", annotated_image)
-                        cv2.waitKey(0)
-                        cv2.destroyAllWindows()
-
+                    # Get the class ID
                     class_id = class_id_map.get(class_name, 0)
 
-                    # Convert (x, y, w, h) to (x_min, y_min, x_max, y_max)
-                    x_min, y_min, w_bbox, h_bbox = largest_bbox
-                    x_max = x_min + w_bbox
-                    y_max = y_min + h_bbox
-                    converted_bbox = (x_min, y_min, x_max, y_max)
+                    # For segmentation mode, get the segmentation mask polygon points
+                    if mode == 'segmentation':
+                        # Use the contour points directly
+                        contour = contour.reshape(-1, 2)
 
-                    # Debug: Print bounding box coordinates
-                    print(f"Original BBox (x_min, y_min, x_max, y_max): {converted_bbox}")
+                        # Normalize the contour points
+                        segmentation = np.zeros_like(contour, dtype=np.float32)
+                        segmentation[:, 0] = contour[:, 0] / img_width
+                        segmentation[:, 1] = contour[:, 1] / img_height
 
-                    # Convert to YOLO format
-                    yolo_annotation = convert_bbox_to_yolo(img_width, img_height, converted_bbox, class_id)
-                    
-                    # Debug: Print YOLO annotation
-                    print(f"YOLO Annotation: {yolo_annotation}")
+                        # Ensure all coordinates are between 0 and 1
+                        segmentation = np.clip(segmentation, 0.0, 1.0)
 
-                    # Save YOLO annotation to label file
+                        segmentation = segmentation.flatten().tolist()
+
+                        # Create the annotation line with segmentation
+                        annotation = [class_id, x_center, y_center, width_norm, height_norm] + segmentation
+
+                        # Denormalize segmentation points for visualization
+                        points = (contour).astype(np.int32)
+
+                        # Draw the segmentation mask on the visualization image
+                        cv2.polylines(mask_visualization, [points], isClosed=True, color=(0, 0, 255), thickness=2)
+
+                        # Optionally, fill the mask
+                        cv2.fillPoly(mask_visualization, [points], color=(0, 0, 255))
+
+                    else:
+                        # For bbox only, no segmentation
+                        annotation = [class_id, x_center, y_center, width_norm, height_norm]
+
+                    annotations.append(annotation)
+
+                # Save annotations to label file
+                if annotations:
                     base_filename = os.path.splitext(filename)[0]
                     label_path = os.path.join(label_dir, f"{base_filename}.txt")
                     with open(label_path, 'w') as f:
-                        f.write(yolo_annotation)
-                        print(f"Annotations saved for {label_path}")
+                        for annotation in annotations:
+                            # Convert all numbers to strings with up to 6 decimal places
+                            annotation_str = ' '.join([f"{a:.6f}" if isinstance(a, float) else str(a) for a in annotation])
+                            f.write(annotation_str + '\n')
+                    print(f"Annotations saved for {label_path}")
+                else:
+                    print(f"No valid annotations for {filename}. Skipping label file generation.")
+                    continue  # Skip if no annotations
 
-                    # Draw bounding box on the image and save to debug/bboxes
-                    bboxes_debug_path = os.path.join(bboxes_dir, f"bboxes_{filename}")
-                    annotated_bbox_image = draw_bounding_boxes(image.copy(), [largest_bbox], format='xywh')
-                    cv2.imwrite(bboxes_debug_path, annotated_bbox_image)
-                    print(f"Saved bounding box image: {bboxes_debug_path}")
+                # Save image with bounding boxes for debugging
+                annotated_image = image.copy()
+                for contour in contours:
+                    # Filter out small contours
+                    if cv2.contourArea(contour) < 100:
+                        continue
+                    x, y, w, h = cv2.boundingRect(contour)
+                    cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                bboxes_debug_path = os.path.join(bboxes_dir, f"bboxes_{filename}")
+                cv2.imwrite(bboxes_debug_path, annotated_image)
+                print(f"Saved bounding box image: {bboxes_debug_path}")
+
+                # Save the mask visualization image
+                mask_visualization_path = os.path.join(maskinyolo_dir, f"maskinyolo_{filename}")
+                cv2.imwrite(mask_visualization_path, mask_visualization)
+                print(f"Saved mask visualization image: {mask_visualization_path}")
+
                 processedimages.insert(counter, filename)
                 counter = counter + 1
-                print("added ", filename, " to processedimages array")
-                print("processed images: ", processedimages)
-                print("filename", filename)
+                print("Added ", filename, " to processedimages array")
+                print("Processed images: ", processedimages)
+                print("Filename:", filename)
 
-    print(f"\nPreprocessing completed. Total files processed: {processed_files}")
+        print(f"\nPreprocessing completed for {split} set. Total files processed: {processed_files}")
 
 if __name__ == "__main__":
     config = load_config()
-    preprocess_images(config)
+    args = parse_arguments()
+    preprocess_images(config, processedimages=[], counter=0, mode=args.mode)
