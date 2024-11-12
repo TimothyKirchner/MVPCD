@@ -17,8 +17,11 @@ from utils.chroma_key import apply_chroma_key
 from utils.depth_processing import process_depth, load_depth_map
 
 def load_config(config_path='config/config.yaml'):
-    with open(os.path.join(project_root, config_path), 'r') as file:
-        config = yaml.safe_load(file)
+    """
+    Load the YAML configuration file.
+    """
+    with open(os.path.join(project_root, config_path), 'r') as f:
+        config = yaml.safe_load(f)
     return config
 
 def parse_arguments():
@@ -70,6 +73,7 @@ def preprocess_images(config, processedimages, counter, mode):
         label_dir = os.path.join(project_root, config['output'][f"{split}_label_dir"])
         depth_dir = os.path.join(project_root, config['output']['depth_dir'])
 
+        # Define debug mask directories per split
         debug_dir = os.path.join(project_root, 'data', 'debug')
         rgbmask_dir = os.path.join(debug_dir, 'rgbmask')
         depthmask_dir = os.path.join(debug_dir, 'depthmask')
@@ -78,6 +82,7 @@ def preprocess_images(config, processedimages, counter, mode):
         bboxes_dir = os.path.join(debug_dir, 'bboxes')
         maskinyolo_dir = os.path.join(debug_dir, 'maskinyolo')
 
+        # Create directories if they don't exist
         for directory in [image_dir, label_dir, rgbmask_dir, depthmask_dir, combinedmask_dir, contours_dir, bboxes_dir, maskinyolo_dir]:
             if not os.path.exists(directory):
                 os.makedirs(directory)
@@ -227,7 +232,7 @@ def preprocess_images(config, processedimages, counter, mode):
                 }
                 translated_roi_mask = get_roi_mask(cropped_image.shape, translated_roi)
 
-                # Combine translated ROI mask with the existing combined mask
+                # Combine translated ROI mask with the existing binary mask
                 final_mask = cv2.bitwise_and(binary_mask, translated_roi_mask * 255)
 
                 # Save masks
@@ -243,6 +248,11 @@ def preprocess_images(config, processedimages, counter, mode):
                 print(f"Saved Depth mask: {depth_mask_path_save}")
                 print(f"Saved Combined mask: {combined_mask_path}")
 
+                # Save the final binary mask to maskinyolo directory
+                maskinyolo_path = os.path.join(maskinyolo_dir, f"maskinyolo_{filename}")
+                cv2.imwrite(maskinyolo_path, final_mask)
+                print(f"Saved YOLO mask: {maskinyolo_path}")
+
                 # Find contours on the final mask
                 contours, _ = cv2.findContours(final_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 if contours:
@@ -257,7 +267,7 @@ def preprocess_images(config, processedimages, counter, mode):
                 # Initialize annotations
                 annotations = []
 
-                # Prepare mask visualization
+                # Prepare mask visualization (optional)
                 mask_visualization = cropped_image.copy()
 
                 # Process each contour
@@ -320,8 +330,9 @@ def preprocess_images(config, processedimages, counter, mode):
                 cv2.imwrite(bboxes_debug_path, annotated_image)
                 print(f"Saved bounding box image: {bboxes_debug_path}")
 
-                # Save mask visualization
-                mask_visualization_path = os.path.join(maskinyolo_dir, f"maskinyolo_{filename}")
+                # Save mask visualization (optional)
+                mask_visualization_path = os.path.join(maskinyolo_dir, f"maskinyolo_visualization_{filename}")
+                print("mask_visualization path: ", mask_visualization_path)
                 cv2.imwrite(mask_visualization_path, mask_visualization)
                 print(f"Saved mask visualization image: {mask_visualization_path}")
 
