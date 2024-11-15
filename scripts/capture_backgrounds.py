@@ -85,7 +85,7 @@ def capture_workspace_images(config, max_retries=5):
             zed.retrieve_image(image_zed, sl.VIEW.LEFT)
             frame = image_zed.get_data()
             # Convert to BGR for OpenCV
-            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)  # Changed from COLOR_RGBA2BGR to COLOR_BGRA2BGR
             cv2.imshow('Workspace - Press "c" to capture, "q" to quit', frame_bgr)
             key = cv2.waitKey(1) & 0xFF
 
@@ -214,8 +214,8 @@ def split_rois_into_fragments(images_with_rois, fragment_size=480):
 
             for i in range(x_steps):
                 for j in range(y_steps):
-                    x_start = x_min + i * (fragment_size + x_overlap)
-                    y_start = y_min + j * (fragment_size + y_overlap)
+                    x_start = x_min + i * (fragment_size - x_overlap)
+                    y_start = y_min + j * (fragment_size - y_overlap)
                     x_end = x_start + fragment_size
                     y_end = y_start + fragment_size
 
