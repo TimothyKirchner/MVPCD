@@ -64,8 +64,68 @@ def get_roi_mask(image_shape, roi):
 
     return roi_mask
 
+def delete_files_for_image(filename, config):
+    """
+    Delete all files corresponding to a given image.
+    """
+    base_filename = os.path.splitext(filename)[0]
+    label_filename = base_filename + '.txt'
+
+    # Directories
+    image_dirs = [
+        os.path.join(project_root, config['output']['image_dir']),
+        os.path.join(project_root, config['output']['train_image_dir']),
+        os.path.join(project_root, config['output']['val_image_dir'])
+    ]
+    label_dirs = [
+        os.path.join(project_root, config['output']['label_dir']),
+        os.path.join(project_root, config['output']['train_label_dir']),
+        os.path.join(project_root, config['output']['val_label_dir'])
+    ]
+    debug_dirs = [os.path.join(project_root, d) for d in config.get('debug', {}).values()]
+
+    # Delete images
+    for dir_path in image_dirs:
+        file_path = os.path.join(dir_path, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted image file: {file_path}")
+
+    # Delete labels
+    for dir_path in label_dirs:
+        file_path = os.path.join(dir_path, label_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted label file: {file_path}")
+
+    # Delete debug images
+    for dir_path in debug_dirs:
+        debug_files = [
+            os.path.join(dir_path, f"{prefix}_{filename}")
+            for prefix in ['rgbmask', 'depthmask', 'combined_mask', 'contours', 'bboxes', 'maskinyolo', 'maskinyolo_visualization']
+        ]
+        for file_path in debug_files:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Deleted debug file: {file_path}")
+
 def preprocess_images(config, processedimages, counter, mode, class_name):
     splits = ['train', 'val']
+
+    # Prompt user to check bounding box sizes
+    check_bbox_size = False
+    while True:
+        user_input = input("Do you want to check for significantly larger or smaller bounding boxes? (y/n): ").strip().lower()
+        if user_input == 'y':
+            check_bbox_size = True
+            break
+        elif user_input == 'n':
+            check_bbox_size = False
+            break
+        else:
+            print("Please enter 'y' or 'n'.")
+
+    bbox_areas = []
 
     for split in splits:
         print(f"\n--- Processing {split} set for class '{class_name}' ---")
@@ -109,6 +169,7 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
         image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f.startswith(class_name)]
 
         for filename in image_files:
+            skip_image = False
             if filename in processedimages:
                 continue
             processed_files += 1
@@ -128,72 +189,11 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             # Generate ROI mask
             roi_mask = get_roi_mask(image.shape, roi_config)
 
-            # Find all pixels in ROI
-            roi_indices = np.argwhere(roi_mask == 1)
-            if roi_indices.size == 0:
-                print(f"No ROI found in image: {filename}. Skipping.")
-                continue
-
-            y_indices = roi_indices[:, 0]
-            x_indices = roi_indices[:, 1]
-
-            roi_x_min = np.min(x_indices)
-            roi_x_max = np.max(x_indices)
-            roi_y_min = np.min(y_indices)
-            roi_y_max = np.max(y_indices)
-
-            # Desired crop size
-            crop_size = 480
-
-            # Calculate possible ranges for the crop's top-left corner
-            crop_x_min = max(0, roi_x_max - crop_size + 1)
-            crop_x_max = min(roi_x_min, img_width - crop_size)
-            crop_y_min = max(0, roi_y_max - crop_size + 1)
-            crop_y_max = min(roi_y_min, img_height - crop_size)
-
-            # Handle cases where the ROI is larger than the crop size
-            if crop_x_min > crop_x_max:
-                crop_x_min = crop_x_max = max(0, min(roi_x_min, img_width - crop_size))
-            if crop_y_min > crop_y_max:
-                crop_y_min = crop_y_max = max(0, min(roi_y_min, img_height - crop_size))
-
-            # Randomly select top-left corner of the crop within the calculated ranges
-            if crop_x_min == crop_x_max:
-                crop_x = crop_x_min
-            else:
-                crop_x = random.randint(int(crop_x_min), int(crop_x_max))
-
-            if crop_y_min == crop_y_max:
-                crop_y = crop_y_min
-            else:
-                crop_y = random.randint(int(crop_y_min), int(crop_y_max))
-
-            # Crop the image
-            crop_x_end = crop_x + crop_size
-            crop_y_end = crop_y + crop_size
-
-            # Ensure crop does not exceed image boundaries
-            crop_x_end = min(crop_x_end, img_width)
-            crop_y_end = min(crop_y_end, img_height)
-            crop_x = crop_x_end - crop_size
-            crop_y = crop_y_end - crop_size
-
-            cropped_image = image[crop_y:crop_y_end, crop_x:crop_x_end].copy()
-
-            # Update image dimensions
-            img_height_crop, img_width_crop = cropped_image.shape[:2]
-
-            # Adjust ROI coordinates relative to the cropped image
-            roi_x_adjusted = roi_x_min - crop_x
-            roi_y_adjusted = roi_y_min - crop_y
-            roi_w_adjusted = roi_x_max - roi_x_min + 1
-            roi_h_adjusted = roi_y_max - roi_y_min + 1
-
-            # Apply chroma key on the cropped image
-            hsv = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2HSV)
+            # Apply chroma key on the image
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
             chroma_keyed = apply_chroma_key(hsv, lower_color, upper_color)
 
-            # Load depth map and crop accordingly
+            # Load depth map
             depth_filename = filename.rsplit('.', 1)[0] + '.npy'
             depth_path = os.path.join(depth_dir, f"depth_{depth_filename}")
             depth_map = load_depth_map(depth_path)
@@ -203,33 +203,22 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                 print(f"Depth map not found for {filename}. Skipping.")
                 continue
 
-            # Crop depth map
-            depth_map_cropped = depth_map[crop_y:crop_y_end, crop_x:crop_x_end]
-
             # Get depth thresholds for the specific class
             depth_threshold = config.get('depth_thresholds', {}).get(class_name, {})
             min_depth = depth_threshold.get('min', 500)
             max_depth = depth_threshold.get('max', 2000)
 
             # Process depth mask
-            depth_mask = process_depth(depth_map_cropped, min_depth=min_depth, max_depth=max_depth)
+            depth_mask = process_depth(depth_map, min_depth=min_depth, max_depth=max_depth)
             chroma_mask = cv2.cvtColor(chroma_keyed, cv2.COLOR_BGR2GRAY)
             combined_mask = cv2.bitwise_and(chroma_mask, depth_mask)
 
             # Threshold the combined mask to ensure it's binary
             _, binary_mask = cv2.threshold(combined_mask, 1, 255, cv2.THRESH_BINARY)
 
-            # Create translated ROI mask in cropped image
-            translated_roi = {
-                'x': roi_x_adjusted,
-                'y': roi_y_adjusted,
-                'width': roi_w_adjusted,
-                'height': roi_h_adjusted
-            }
-            translated_roi_mask = get_roi_mask(cropped_image.shape, translated_roi)
-
-            # Combine translated ROI mask with the existing binary mask
-            final_mask = cv2.bitwise_and(binary_mask, translated_roi_mask * 255)
+            # Apply ROI mask
+            roi_mask_scaled = roi_mask * 255
+            final_mask = cv2.bitwise_and(binary_mask, roi_mask_scaled)
 
             # Save masks
             rgb_mask_path = os.path.join(rgbmask_dir, f"rgbmask_{filename}")
@@ -244,15 +233,10 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             print(f"Saved Depth mask: {depth_mask_path_save}")
             print(f"Saved Combined mask: {combined_mask_path}")
 
-            # Save the final binary mask to maskinyolo directory
-            maskinyolo_path = os.path.join(maskinyolo_dir, f"maskinyolo_{filename}")
-            cv2.imwrite(maskinyolo_path, final_mask)
-            print(f"Saved YOLO mask: {maskinyolo_path}")
-
             # Find contours on the final mask
             contours, _ = cv2.findContours(final_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if contours:
-                contours_image = cv2.drawContours(cropped_image.copy(), contours, -1, (0, 255, 0), 2)
+                contours_image = cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 2)
                 cv2.imwrite(contours_path, contours_image)
                 print(f"Saved contours: {contours_path}")
             else:
@@ -262,9 +246,10 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
 
             # Initialize annotations
             annotations = []
-
             # Prepare mask visualization (optional)
-            mask_visualization = cropped_image.copy()
+            mask_visualization = image.copy()
+
+            image_bbox_areas = []
 
             # Process each contour
             for contour in contours:
@@ -273,22 +258,30 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
 
                 x, y, w, h = cv2.boundingRect(contour)
 
-                x_center = (x + w / 2) / img_width_crop
-                y_center = (y + h / 2) / img_height_crop
-                width_norm = w / img_width_crop
-                height_norm = h / img_height_crop
+                area = w * h
+
+                # Only consider areas where w and h are positive
+                if w <= 0 or h <= 0:
+                    continue
+
+                image_bbox_areas.append(area)
+
+                x_center = (x + w / 2) / img_width
+                y_center = (y + h / 2) / img_height
+                width_norm = w / img_width
+                height_norm = h / img_height
 
                 if mode == 'segmentation':
                     contour = contour.reshape(-1, 2)
                     segmentation = contour.astype(np.float32)
-                    segmentation[:, 0] /= img_width_crop
-                    segmentation[:, 1] /= img_height_crop
+                    segmentation[:, 0] /= img_width
+                    segmentation[:, 1] /= img_height
                     segmentation = segmentation.flatten().tolist()
 
                     class_id = class_id_map.get(class_name, 0)
                     annotation = [class_id, x_center, y_center, width_norm, height_norm] + segmentation
 
-                    points = (contour * [img_width_crop, img_height_crop]).astype(np.int32)
+                    points = (contour * [img_width, img_height]).astype(np.int32)
                     cv2.polylines(mask_visualization, [points], isClosed=True, color=(0, 0, 255), thickness=2)
                     cv2.fillPoly(mask_visualization, [points], color=(0, 0, 255))
                 else:
@@ -297,34 +290,68 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
 
                 annotations.append(annotation)
 
-            # Save annotations
-            if annotations:
-                base_filename = os.path.splitext(filename)[0]
-                label_path = os.path.join(label_dir, f"{base_filename}.txt")
-                with open(label_path, 'w') as f:
-                    for annotation in annotations:
-                        annotation_str = ' '.join([f"{a:.6f}" if isinstance(a, float) else str(a) for a in annotation])
-                        f.write(annotation_str + '\n')
-                print(f"Annotations saved for {label_path}")
-            else:
+                # Draw bounding box on mask_visualization
+                cv2.rectangle(mask_visualization, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            if not annotations:
                 print(f"No valid annotations for {filename}. Skipping label file generation.")
                 continue
 
-            # Save cropped image
-            image_save_path = os.path.join(image_dir, filename)
-            cv2.imwrite(image_save_path, cropped_image)
-            print(f"Saved cropped image: {image_save_path}")
+            # Check bounding box sizes
+            if check_bbox_size and bbox_areas:
+                avg_area = sum(bbox_areas) / len(bbox_areas)
+                threshold = 0.5  # 50% difference
 
-            # Save image with bounding boxes
-            annotated_image = mask_visualization.copy()
-            for contour in contours:
-                if cv2.contourArea(contour) < 100:
-                    continue
-                x, y, w, h = cv2.boundingRect(contour)
-                cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            bboxes_debug_path = os.path.join(bboxes_dir, f"bboxes_{filename}")
-            cv2.imwrite(bboxes_debug_path, annotated_image)
-            print(f"Saved bounding box image: {bboxes_debug_path}")
+                significant_diff = False
+                for area in image_bbox_areas:
+                    if area > avg_area * (1 + threshold) or area < avg_area * (1 - threshold):
+                        significant_diff = True
+                        break
+
+                if significant_diff:
+                    # Show image with bounding boxes
+                    cv2.imshow('Bounding Box Check', mask_visualization)
+                    print(f"One or more bounding boxes have area significantly different from average {avg_area:.2f}.")
+                    print("Close the image window to proceed.")
+                    cv2.waitKey(0)
+                    cv2.destroyAllWindows()
+
+                    # Ask user whether to keep or delete
+                    while True:
+                        user_choice = input("Do you want to keep this image? (y/n): ").strip().lower()
+                        if user_choice == 'y':
+                            # Keep it
+                            break
+                        elif user_choice == 'n':
+                            # Delete the files corresponding to this image
+                            delete_files_for_image(filename, config)
+                            # Skip processing this image
+                            skip_image = True
+                            break
+                        else:
+                            print("Please enter 'y' or 'n'.")
+                    if skip_image:
+                        break  # Skip saving annotations and images
+
+            if skip_image:
+                continue  # Skip saving annotations and images
+
+            # Add areas to bbox_areas
+            bbox_areas.extend(image_bbox_areas)
+
+            # Save annotations
+            base_filename = os.path.splitext(filename)[0]
+            label_path = os.path.join(label_dir, f"{base_filename}.txt")
+            with open(label_path, 'w') as f:
+                for annotation in annotations:
+                    annotation_str = ' '.join([f"{a:.6f}" if isinstance(a, float) else str(a) for a in annotation])
+                    f.write(annotation_str + '\n')
+            print(f"Annotations saved for {label_path}")
+
+            # Save image
+            image_save_path = os.path.join(image_dir, filename)
+            cv2.imwrite(image_save_path, image)
+            print(f"Saved image: {image_save_path}")
 
             # Save mask visualization (optional)
             mask_visualization_path = os.path.join(maskinyolo_dir, f"maskinyolo_visualization_{filename}")
