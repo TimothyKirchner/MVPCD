@@ -248,6 +248,7 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             annotations = []
             # Prepare mask visualization (optional)
             mask_visualization = image.copy()
+            annotated_image = image.copy()  # For saving images with bounding boxes
 
             image_bbox_areas = []
 
@@ -272,8 +273,8 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                 height_norm = h / img_height
 
                 if mode == 'segmentation':
-                    contour = contour.reshape(-1, 2)
-                    segmentation = contour.astype(np.float32)
+                    contour_pts = contour.reshape(-1, 2)
+                    segmentation = contour_pts.astype(np.float32)
                     segmentation[:, 0] /= img_width
                     segmentation[:, 1] /= img_height
                     segmentation = segmentation.flatten().tolist()
@@ -281,7 +282,8 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                     class_id = class_id_map.get(class_name, 0)
                     annotation = [class_id, x_center, y_center, width_norm, height_norm] + segmentation
 
-                    points = (contour * [img_width, img_height]).astype(np.int32)
+                    # Draw segmentation mask
+                    points = (contour_pts).astype(np.int32)
                     cv2.polylines(mask_visualization, [points], isClosed=True, color=(0, 0, 255), thickness=2)
                     cv2.fillPoly(mask_visualization, [points], color=(0, 0, 255))
                 else:
@@ -290,8 +292,9 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
 
                 annotations.append(annotation)
 
-                # Draw bounding box on mask_visualization
+                # Draw bounding box on mask_visualization and annotated_image
                 cv2.rectangle(mask_visualization, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
             if not annotations:
                 print(f"No valid annotations for {filename}. Skipping label file generation.")
@@ -353,6 +356,11 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             cv2.imwrite(image_save_path, image)
             print(f"Saved image: {image_save_path}")
 
+            # Save image with bounding boxes to debug/bboxes
+            bboxes_debug_path = os.path.join(bboxes_dir, f"bboxes_{filename}")
+            cv2.imwrite(bboxes_debug_path, annotated_image)
+            print(f"Saved bounding box image: {bboxes_debug_path}")
+
             # Save mask visualization (optional)
             mask_visualization_path = os.path.join(maskinyolo_dir, f"maskinyolo_visualization_{filename}")
             print("mask_visualization path: ", mask_visualization_path)
@@ -364,6 +372,8 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             print("Added ", filename, " to processedimages array")
             print("Processed images: ", processedimages)
             print("Filename:", filename)
+
+    print(f"\nTotal processed images: {processed_files}")
 
 if __name__ == "__main__":
     config = load_config()
