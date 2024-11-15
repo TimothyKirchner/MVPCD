@@ -7,6 +7,8 @@ import numpy as np
 import yaml
 import random
 import logging
+from glob import glob
+from rectpack import newPacker
 
 # Adjust sys.path to include the project root directory
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -42,206 +44,218 @@ def validate_config(config):
             raise ValueError(f"Missing '{key}' in configuration.")
     # Further validation as needed
 
-def replace_background_with_random_images(config, class_name):
+def load_background_fragments(backgrounds_dir):
     """
-    Replace the background of each image with random background images
-    from the backgrounds folder using filled contours from preprocess.py
-    for a specific class.
+    Load background fragments from the specified directory.
+    Returns a list of (width, height, image) tuples.
+    """
+    background_files = glob(os.path.join(backgrounds_dir, '*.png')) + \
+                       glob(os.path.join(backgrounds_dir, '*.jpg')) + \
+                       glob(os.path.join(backgrounds_dir, '*.jpeg'))
+    if not background_files:
+        print("No background fragments found in backgrounds directory.")
+        sys.exit(1)
+    
+    background_fragments = []
+    for idx, file_path in enumerate(background_files):
+        img = cv2.imread(file_path)
+        if img is None:
+            print(f"Warning: Could not load image {file_path}. Skipping.")
+            continue
+        height, width = img.shape[:2]
+        background_fragments.append((width, height, img))
+    
+    if not background_fragments:
+        print("No valid background fragments loaded.")
+        sys.exit(1)
+    
+    print(f"Loaded {len(background_fragments)} background fragments.")
+    return background_fragments
+
+def arrange_fragments_bin_packing(fragments, canvas_size):
+    """
+    Arrange fragments into the canvas using bin packing.
+    Returns a list of placement tuples: (fragment_image, x, y)
+    """
+    bin_width, bin_height = canvas_size
+    packer = newPacker(mode='maxrects')
+
+    # Add the single bin where all fragments will be placed
+    packer.add_bin(bin_width, bin_height)
+
+    # Add rectangles to packer
+    for idx, (w, h, img) in enumerate(fragments):
+        packer.add_rect(w, h, rid=idx)
+
+    # Start packing
+    packer.pack()
+
+    # Retrieve packing results
+    placements = []
+    all_rects = packer.rect_list()
+    for rect in all_rects:
+        bin_index, x, y, w, h, rid = rect
+        fragment_img = fragments[rid][2]
+        placements.append((fragment_img, x, y))
+        print(f"Placed fragment {rid} at position ({x}, {y}) with size ({w}x{h})")
+    
+    return placements
+
+def create_mosaic_canvas(canvas_size):
+    """
+    Create a blank canvas of the specified size.
+    """
+    bin_width, bin_height = canvas_size
+    canvas = np.zeros((bin_height, bin_width, 3), dtype=np.uint8)
+    return canvas
+
+def composite_fragments_on_canvas(canvas, placements):
+    """
+    Place fragments onto the canvas at specified positions.
+    """
+    for fragment_img, x, y in placements:
+        frag_height, frag_width = fragment_img.shape[:2]
+        # Ensure the fragment fits within the canvas
+        if y + frag_height > canvas.shape[0] or x + frag_width > canvas.shape[1]:
+            print(f"Warning: Fragment at ({x}, {y}) with size ({frag_width}x{frag_height}) exceeds canvas bounds. Skipping.")
+            continue
+        # Overlay fragment onto canvas
+        canvas[y:y+frag_height, x:x+frag_width] = fragment_img
+    return canvas
+
+def composite_object_foreground(mosaic, object_image, mask):
+    """
+    Composite the object onto the mosaic background using the mask.
+    Ensures that the object is in the foreground.
+    """
+    # Ensure all images are the same size
+    if mosaic.shape[:2] != object_image.shape[:2]:
+        print("Resizing object image and mask to match mosaic size.")
+        object_image = cv2.resize(object_image, (mosaic.shape[1], mosaic.shape[0]))
+        mask = cv2.resize(mask, (mosaic.shape[1], mosaic.shape[0]))
+    
+    # Create binary mask
+    _, binary_mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+    
+    # Invert mask for background
+    mask_inv = cv2.bitwise_not(binary_mask)
+    
+    # Extract background from mosaic
+    background = cv2.bitwise_and(mosaic, mosaic, mask=mask_inv)
+    
+    # Extract object from object_image
+    foreground = cv2.bitwise_and(object_image, object_image, mask=binary_mask)
+    
+    # Combine background and foreground
+    composite = cv2.add(background, foreground)
+    
+    return composite
+
+def replace_images_with_mosaic(config, class_name):
+    """
+    Replace entire images with a mosaic of background fragments for a specific class.
     """
     # Set up logging
+    log_file = os.path.join(project_root, 'scripts', 'replace_background_with_random_images.log')
     logging.basicConfig(
-        filename=os.path.join(project_root, 'scripts', 'replace_background_with_random_images.log'),
+        filename=log_file,
         level=logging.INFO,
         format='%(asctime)s:%(levelname)s:%(message)s'
     )
-
+    
     # Get image directories from config
     train_dir = os.path.join(project_root, config['output']['train_image_dir'])
     val_dir = os.path.join(project_root, config['output']['val_image_dir'])
-    contours_dir = os.path.join(project_root, config['debug']['contours'])
+    output_dirs = [train_dir, val_dir]
+    
+    # Get mask directory (assuming 'maskinyolo' as per preprocess.py)
+    mask_dir = os.path.join(project_root, 'data', 'debug', 'maskinyolo')
+    
+    # Background fragments directory
     backgrounds_dir = os.path.join(project_root, 'data', 'backgrounds')
-    coloring_mask_dir = os.path.join(project_root, 'data', 'debug', 'coloringmask_random_bg')
-
-    dirs = [train_dir, val_dir]
-
-    # Create coloring_mask_dir if it doesn't exist
-    os.makedirs(coloring_mask_dir, exist_ok=True)
-
-    if not os.path.exists(contours_dir):
-        logging.error(f"Contours directory does not exist: {contours_dir}")
-        print(f"Contours directory does not exist: {contours_dir}")
-        sys.exit(1)
-
+    
+    # Validate backgrounds directory
     if not os.path.exists(backgrounds_dir):
         logging.error(f"Backgrounds directory does not exist: {backgrounds_dir}")
         print(f"Backgrounds directory does not exist: {backgrounds_dir}")
         sys.exit(1)
-
-    # Load background images
-    background_images = []
-    for bg_filename in os.listdir(backgrounds_dir):
-        if bg_filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            bg_path = os.path.join(backgrounds_dir, bg_filename)
-            bg_image = cv2.imread(bg_path)
-            if bg_image is not None:
-                background_images.append(bg_image)
-    if not background_images:
-        logging.error("No background images found in backgrounds directory.")
-        print("No background images found in backgrounds directory.")
+    
+    # Validate mask directory
+    if not os.path.exists(mask_dir):
+        logging.error(f"Mask directory does not exist: {mask_dir}")
+        print(f"Mask directory does not exist: {mask_dir}")
         sys.exit(1)
-
-    for dir_path in dirs:
+    
+    # Load background fragments
+    background_fragments = load_background_fragments(backgrounds_dir)
+    
+    for dir_path in output_dirs:
         if not os.path.exists(dir_path):
             logging.warning(f"Image directory does not exist: {dir_path}. Skipping.")
             print(f"Image directory does not exist: {dir_path}. Skipping.")
             continue
-
+    
         # Get list of image files starting with class_name
         image_files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f.startswith(class_name)]
-
+    
+        print(f"\nProcessing {len(image_files)} images in directory: {dir_path}")
+    
         for filename in image_files:
             image_path = os.path.join(dir_path, filename)
-
+    
             # Read the original image
-            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            image = cv2.imread(image_path)
             if image is None:
                 logging.error(f"Could not read image: {image_path}. Skipping.")
                 print(f"Could not read image: {image_path}. Skipping.")
                 continue
-
-            # Initialize a variable to accumulate masks for this image
-            accumulated_mask = None
-
-            # Construct contour filename
-            contour_filename = f"contours_{filename}"
-            contour_path = os.path.join(contours_dir, contour_filename)
-            print("contour_path: ", contour_path)
-
-            if not os.path.exists(contour_path):
-                logging.warning(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
-                print(f"Contour image '{contour_path}' does not exist for class '{class_name}'. Skipping.")
+    
+            img_height, img_width = image.shape[:2]
+            canvas_size = (img_width, img_height)  # rectpack uses (width, height)
+    
+            # Construct corresponding mask filename
+            mask_filename = f"maskinyolo_visualization_{filename}"
+            mask_path = os.path.join(mask_dir, mask_filename)
+    
+            if not os.path.exists(mask_path):
+                logging.warning(f"Mask file does not exist: {mask_path}. Skipping image.")
+                print(f"Mask file does not exist: {mask_path}. Skipping image.")
                 continue
-
-            # Read the contour image
-            contour_image = cv2.imread(contour_path, cv2.IMREAD_COLOR)
-            if contour_image is None:
-                logging.error(f"Could not read contour image: {contour_path}. Skipping.")
-                print(f"Could not read contour image: {contour_path}. Skipping.")
+    
+            # Read the mask image (assuming it's a binary mask)
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                logging.error(f"Could not read mask: {mask_path}. Skipping image.")
+                print(f"Could not read mask: {mask_path}. Skipping image.")
                 continue
-
-            # Ensure contour image matches the size of the original image
-            if contour_image.shape[:2] != image.shape[:2]:
-                logging.warning(f"Contour image size {contour_image.shape[:2]} does not match image size {image.shape[:2]}. Resizing contour image.")
-                print(f"Contour image size {contour_image.shape[:2]} does not match image size {image.shape[:2]}. Resizing contour image.")
-                contour_image = cv2.resize(contour_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
-
-            # Define green color range to extract the mask
-            lower_green = np.array([0, 200, 0])
-            upper_green = np.array([100, 255, 100])
-            mask_contour = cv2.inRange(contour_image, lower_green, upper_green)
-
-            # Find contours from the mask
-            contours, _ = cv2.findContours(mask_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            if not contours:
-                logging.warning(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
-                print(f"No contours found in contour image '{contour_path}' for class '{class_name}'. Skipping.")
-                continue
-
-            # Create a mask for this class
-            accumulated_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
-
-            # Draw filled contours on the accumulated mask
-            cv2.drawContours(accumulated_mask, contours, -1, (255), thickness=cv2.FILLED)
-
-            if accumulated_mask is None:
-                logging.warning(f"No valid contours found for image '{filename}'. Skipping.")
-                print(f"No valid contours found for image '{filename}'. Skipping.")
-                continue
-
-            # Save the accumulated mask for debugging
-            coloring_mask_path = os.path.join(coloring_mask_dir, f"coloring_mask_{filename}")
-            cv2.imwrite(coloring_mask_path, accumulated_mask)
-
-            # Invert the mask to get the background
-            mask_inv = cv2.bitwise_not(accumulated_mask)
-
-            # Check if image has alpha channel
-            if len(image.shape) == 3 and image.shape[2] == 4:
-                # Separate the BGR and Alpha channels
-                bgr = image[:, :, :3]
-                alpha = image[:, :, 3]
-                has_alpha = True
-            elif len(image.shape) == 3 and image.shape[2] == 3:
-                bgr = image
-                has_alpha = False
-            else:
-                logging.warning(f"Unsupported image format for '{filename}'. Skipping.")
-                print(f"Unsupported image format for '{filename}'. Skipping.")
-                continue
-
-            # Select a random background image
-            bg_image = random.choice(background_images)
-            bg_height, bg_width = bg_image.shape[:2]
-
-            # Resize background to match the image size
-            bg_resized = cv2.resize(bg_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
-
-            # Ensure background is the same size as the original image
-            if bg_resized.shape[:2] != image.shape[:2]:
-                logging.warning(f"Background image resized to {bg_resized.shape[:2]} does not match image size {image.shape[:2]}.")
-                print(f"Background image resized to {bg_resized.shape[:2]} does not match image size {image.shape[:2]}.")
-                continue
-
-            # Create a 3-channel mask for background
-            mask_inv_3ch = cv2.merge([mask_inv, mask_inv, mask_inv])
-
-            # Extract the background using the inverted mask
-            background_part = cv2.bitwise_and(bg_resized, mask_inv_3ch)
-
-            # Extract the object using the mask
-            mask_3ch = cv2.merge([accumulated_mask, accumulated_mask, accumulated_mask])
-            object_part = cv2.bitwise_and(bgr, mask_3ch)
-
-            # Combine object and new background
-            composite = cv2.add(object_part, background_part)
-
-            # If original image had alpha channel, set alpha to object mask
-            if has_alpha:
-                composite = cv2.cvtColor(composite, cv2.COLOR_BGR2BGRA)
-                composite[:, :, 3] = accumulated_mask  # Set alpha channel based on mask
-
-            # Save the composited image, replacing the original
-            # Choose appropriate format based on original format
-            ext = os.path.splitext(filename)[1].lower()
-            save_path = image_path  # Default save path
-
-            if ext in ['.jpg', '.jpeg']:
-                # JPEG does not support alpha channel, convert to BGR
-                if composite.shape[2] == 4:
-                    composite_bgr = cv2.cvtColor(composite, cv2.COLOR_BGRA2BGR)
-                    save_path = os.path.splitext(image_path)[0] + '.jpg'  # Ensure extension is .jpg
-                    success = cv2.imwrite(save_path, composite_bgr)
-                else:
-                    success = cv2.imwrite(save_path, composite)
-            elif ext == '.png':
-                # PNG supports alpha channel, keep as is
-                success = cv2.imwrite(save_path, composite)
-            else:
-                # For other formats, save as PNG to preserve alpha
-                save_path = os.path.splitext(image_path)[0] + '.png'
-                success = cv2.imwrite(save_path, composite)
-
+    
+            # Load the object image (the current image to keep in foreground)
+            object_image = image.copy()
+    
+            # Arrange fragments using bin packing
+            placements = arrange_fragments_bin_packing(background_fragments, canvas_size)
+    
+            # Create mosaic canvas
+            mosaic = create_mosaic_canvas(canvas_size)
+    
+            # Composite fragments onto the canvas
+            mosaic = composite_fragments_on_canvas(mosaic, placements)
+    
+            # Composite object onto the mosaic using the mask
+            composite_image = composite_object_foreground(mosaic, object_image, mask)
+    
+            # Save the composite image, replacing the original
+            success = cv2.imwrite(image_path, composite_image)
             if success:
-                logging.info(f"Replaced background with random image for: {save_path}")
-                print(f"Replaced background with random image for: {save_path}")
+                logging.info(f"Replaced image with mosaic: {image_path}")
+                print(f"Replaced image with mosaic: {image_path}")
             else:
-                logging.error(f"Failed to save image: {save_path}")
-                print(f"Failed to save image: {save_path}")
+                logging.error(f"Failed to save mosaic image: {image_path}")
+                print(f"Failed to save mosaic image: {image_path}")
 
 def main():
     """
-    Main function to replace backgrounds using random images.
+    Main function to replace entire images with mosaics.
     """
     config = load_config()
     try:
@@ -249,11 +263,15 @@ def main():
     except ValueError as e:
         print(f"Configuration Error: {e}")
         sys.exit(1)
-
-    # You need to provide class_name when calling the function
-    # For standalone testing, replace 'your_class_name' with an actual class name
-    class_name = 'your_class_name'  # Replace with actual class name
-    replace_background_with_random_images(config, class_name)
+    
+    # Prompt user for class name
+    class_name = input("Enter the class name to process (e.g., 'cat'): ").strip()
+    if not class_name:
+        print("No class name provided. Exiting.")
+        sys.exit(1)
+    
+    replace_images_with_mosaic(config, class_name)
+    print(f"Replaced images for class '{class_name}' with mosaics.")
 
 if __name__ == "__main__":
     main()

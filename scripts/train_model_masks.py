@@ -55,6 +55,19 @@ def train_yolo_model_masks(config, task, epochs=100, learning_rate=0.0001, batch
     if not os.path.exists(mvpcd_yaml_path):
         print(f"Configuration file {mvpcd_yaml_path} does not exist.")
         return
+    
+    task_label = task
+
+    print("The detection model is currently: ", task_label, ". Is this coorrect?")
+    check = input("Is this correct? (y/n): ")
+    if check == "n":
+        while task_label != "detection" and task_label != "segment":
+            print("ERROR: Task Label must be either \"detection\" or \"segment\".")
+            task = input("Input \"detection\" for bbox or \"segment\" for masks: ")
+            task_label = task
+
+    print("Task: ", task)
+    print("Task_Label: ", task_label)
 
     # Select the appropriate model based on the task
     if task == 'detection':
@@ -66,33 +79,23 @@ def train_yolo_model_masks(config, task, epochs=100, learning_rate=0.0001, batch
         project_name = 'mvpcd_yolov8_seg'
         task_label = 'segment'
 
+    print("Task: ", task)
+
     # Set up training parameters
     model.train(
         data=mvpcd_yaml_path,
         epochs=epochs,
         lr0=learning_rate,
         batch=batch_size,
-        imgsz=480,  # Adjust image size as needed
+        imgsz=640,  # Adjust image size as needed
         name=project_name,
         project=os.path.join(project_root, 'runs', task_label),
         verbose=True,
         augment=True,    # Enable data augmentation
         pretrained=True, # Use pre-trained weights
         weight_decay=0.00005,  # Adjust regularization if needed
-        cache=True,      # Cache data for faster training
         task=task_label, # Specify the task
         optimizer='AdamW',  # Use AdamW optimizer
-        mosaic=True,        # Enable mosaic augmentation
-        hsv_h=0.015,        # Adjust hue augmentation
-        hsv_s=0.7,          # Adjust saturation augmentation
-        hsv_v=0.4,          # Adjust value augmentation
-        degrees=10.0,       # Rotation augmentation
-        translate=0.1,      # Translation augmentation
-        scale=0.5,          # Scale augmentation
-        shear=0.0,          # Shear augmentation
-        perspective=0.0,    # Perspective augmentation
-        flipud=0.0,         # Vertical flip augmentation
-        fliplr=0.5,         # Horizontal flip augmentation
     )
     latest_model_path = model.ckpt_path  # Or use model.last
     print("Path to the last trained model:", latest_model_path)
@@ -105,5 +108,5 @@ if __name__ == "__main__":
         task="detection",
         epochs=100,
         learning_rate=0.00015,
-        batch_size=6
+        batch_size=4
     )

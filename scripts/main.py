@@ -22,19 +22,23 @@ from run_inference import run_inference
 from split_dataset import split_dataset
 from archive_dataset import archive_dataset
 from capture_backgrounds import capture_backgrounds
-from replace_background_with_random_images import replace_background_with_random_images
+from replace_background_with_random_images import replace_images_with_mosaic
 
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
     config_full_path = os.path.join(project_root, config_path)
+    num_images = input("How many images should be taken?: ")
+    num_images = int(num_images)
+    intervall = input("What should be the intervall between images captured?: ")
+    intervall = float(intervall)
     config = {
         'camera': {
             'fps': 30,
             'resolution': [1280, 720]
         },
         'capture': {
-            'interval': 0.36,
-            'num_images': 50
+            'interval': intervall,
+            'num_images': num_images
         },
         'chroma_key': {
             'lower_color': [0, 80, 0],
@@ -45,7 +49,10 @@ def load_config(config_path='config/config.yaml'):
             'combined_mask': 'data/debug/combined_mask',
             'contours': 'data/debug/contours',
             'depthmask': 'data/debug/depthmask',
-            'rgbmask': 'data/debug/rgbmask'
+            'rgbmask': 'data/debug/rgbmask',
+            "maskinyolo": "data/debug/maskinyolo",
+            "coloringmask_random_bg": "data/debug/coloringmask_random_bg",
+            "coloringmask": "data/debug/coloringmask"
         },
         'depth_thresholds': {
             'whitething': {
@@ -63,7 +70,8 @@ def load_config(config_path='config/config.yaml'):
             'train_image_dir': 'data/images/train',
             'train_label_dir': 'data/labels/train',
             'val_image_dir': 'data/images/val',
-            'val_label_dir': 'data/labels/val'
+            'val_label_dir': 'data/labels/val',
+            "background_image_dir": "data/backgrounds"
         },
         'rois': [
             {
@@ -180,6 +188,10 @@ def main():
         else:
             print("Invalid input. Please enter 1 or 2.")
 
+    delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
+    if delete_data == 'y':
+        delete_all_data(config)
+
     while True:
         choice = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? 1 generally leads to better model perforance in your specific workspace. Enter 1 or 2: ").strip()
         if choice == '1':
@@ -196,9 +208,6 @@ def main():
     if train_new_model:
         # Proceed with existing pipeline for training a new model
         # Optionally delete all existing data
-        delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
-        if delete_data == 'y':
-            delete_all_data(config)
 
         boxormask = input("Do you want to train with masks or bboxes? Input 1 for bbox, or 2 for masks: ")
 
@@ -258,7 +267,7 @@ def main():
             preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
 
             if take_background:
-                replace_background_with_random_images(config, class_name=class_name)
+                replace_images_with_mosaic(config, class_name=class_name)
                 print("Replacing Background with Mosaic of Workspace.")
             else:
                 replace_background_with_preset_color_using_contours(config, class_name=class_name)
@@ -308,9 +317,6 @@ def main():
     else:
         # Modify an existing model by adding/removing classes
         # Get the name/path of the existing model
-        delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
-        if delete_data == 'y':
-            delete_all_data(config)
 
         model_name = input("Enter the name of the existing model to modify (e.g., 'mvpcd_yolov8'): ").strip()
         model_path = os.path.join(project_root, 'runs', 'detect', model_name, 'weights', 'best.pt')
@@ -388,7 +394,7 @@ def main():
             preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
 
             if take_background:
-                replace_background_with_random_images(config, class_name=class_name)
+                replace_images_with_mosaic(config, class_name=class_name)
                 print("Replacing Background with Mosaic of Workspace.")
             else:
                 replace_background_with_preset_color_using_contours(config, class_name=class_name)

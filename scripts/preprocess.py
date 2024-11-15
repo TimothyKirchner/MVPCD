@@ -36,31 +36,37 @@ def parse_arguments():
     return parser.parse_args()
 
 def get_roi_mask(image_shape, roi):
-    """
-    Create a binary mask indicating the ROI area.
-
-    Parameters:
-    - image_shape: Tuple[int, int, int], shape of the image (height, width, channels).
-    - roi: Dict[str, int], with keys 'x', 'y', 'width', 'height'.
-
-    Returns:
-    - roi_mask: np.ndarray, binary mask with the same height and width as the image.
-    """
     height, width = image_shape[:2]
     roi_mask = np.zeros((height, width), dtype=np.uint8)
 
-    x_start = int(roi['x'])
-    y_start = int(roi['y'])
-    x_end = x_start + int(roi['width'])
-    y_end = y_start + int(roi['height'])
+    # Handle ROI input formats
+    if isinstance(roi, dict):
+        try:
+            x_min = int(roi.get('x', 0))
+            y_min = int(roi.get('y', 0))
+            x_max = x_min + int(roi.get('width', 0))
+            y_max = y_min + int(roi.get('height', 0))
+        except ValueError as e:
+            raise ValueError(f"Invalid ROI values: {roi}. All ROI values must be integers.") from e
+    elif isinstance(roi, (list, tuple)):
+        try:
+            x_min, y_min, x_max, y_max = map(int, roi)
+        except ValueError as e:
+            raise ValueError(f"Invalid ROI values: {roi}. All ROI values must be integers.") from e
+    else:
+        raise TypeError("ROI must be a dictionary or a list/tuple of four integers.")
+
+    # Debug: Print ROI values and their types
+    print(f"Processing ROI: x_min={x_min} (type: {type(x_min)}), y_min={y_min} (type: {type(y_min)}), "
+          f"x_max={x_max} (type: {type(x_max)}), y_max={y_max} (type: {type(y_max)})")
 
     # Ensure ROI coordinates are within image bounds
-    x_start = max(0, min(x_start, width - 1))
-    y_start = max(0, min(y_start, height - 1))
-    x_end = max(0, min(x_end, width))
-    y_end = max(0, min(y_end, height))
+    x_min = max(0, min(x_min, width - 1))
+    y_min = max(0, min(y_min, height - 1))
+    x_max = max(0, min(x_max, width))
+    y_max = max(0, min(y_max, height))
 
-    roi_mask[y_start:y_end, x_start:x_end] = 1
+    roi_mask[y_min:y_max, x_min:x_max] = 1
 
     return roi_mask
 
@@ -73,12 +79,10 @@ def delete_files_for_image(filename, config):
 
     # Directories
     image_dirs = [
-        os.path.join(project_root, config['output']['image_dir']),
         os.path.join(project_root, config['output']['train_image_dir']),
         os.path.join(project_root, config['output']['val_image_dir'])
     ]
     label_dirs = [
-        os.path.join(project_root, config['output']['label_dir']),
         os.path.join(project_root, config['output']['train_label_dir']),
         os.path.join(project_root, config['output']['val_label_dir'])
     ]
@@ -334,10 +338,7 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                         else:
                             print("Please enter 'y' or 'n'.")
                     if skip_image:
-                        break  # Skip saving annotations and images
-
-            if skip_image:
-                continue  # Skip saving annotations and images
+                        continue  # Skip saving annotations and images
 
             # Add areas to bbox_areas
             bbox_areas.extend(image_bbox_areas)
@@ -350,11 +351,6 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                     annotation_str = ' '.join([f"{a:.6f}" if isinstance(a, float) else str(a) for a in annotation])
                     f.write(annotation_str + '\n')
             print(f"Annotations saved for {label_path}")
-
-            # Save image
-            image_save_path = os.path.join(image_dir, filename)
-            cv2.imwrite(image_save_path, image)
-            print(f"Saved image: {image_save_path}")
 
             # Save image with bounding boxes to debug/bboxes
             bboxes_debug_path = os.path.join(bboxes_dir, f"bboxes_{filename}")
@@ -373,12 +369,12 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             print("Processed images: ", processedimages)
             print("Filename:", filename)
 
-    print(f"\nTotal processed images: {processed_files}")
-
 if __name__ == "__main__":
     config = load_config()
     args = parse_arguments()
-    # You need to provide class_name when calling preprocess_images
-    # For standalone testing, replace 'your_class_name' with an actual class name
-    class_name = 'your_class_name'  # Replace with actual class name
+    # Prompt user for class name
+    class_name = input("Enter the class name to process (e.g., 'cat'): ").strip()
+    if not class_name:
+        print("No class name provided. Exiting.")
+        sys.exit(1)
     preprocess_images(config, processedimages=[], counter=0, mode=args.mode, class_name=class_name)

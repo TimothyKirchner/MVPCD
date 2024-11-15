@@ -47,10 +47,11 @@ def capture_workspace_images(config, max_retries=5):
     # Map resolution from [width, height] to ZED SDK resolution enum
     resolution_mapping = {
         (1280, 720): sl.RESOLUTION.HD720,
+        (1920, 1080): sl.RESOLUTION.HD1080,
     }
     init_resolution = resolution_mapping.get(tuple(resolution), sl.RESOLUTION.HD720)
     if tuple(resolution) not in resolution_mapping:
-        print("Resolution not recognized. Using default HD720.")
+        print("Unsupported resolution provided. Defaulting to HD720 (1280x720).")
     
     init_params.camera_resolution = init_resolution
     init_params.camera_fps = fps
@@ -85,7 +86,7 @@ def capture_workspace_images(config, max_retries=5):
             zed.retrieve_image(image_zed, sl.VIEW.LEFT)
             frame = image_zed.get_data()
             # Convert to BGR for OpenCV
-            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)  # Changed from COLOR_RGBA2BGR to COLOR_BGRA2BGR
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
             cv2.imshow('Workspace - Press "c" to capture, "q" to quit', frame_bgr)
             key = cv2.waitKey(1) & 0xFF
 
@@ -181,73 +182,39 @@ def select_rois_on_images(images):
 
     return images_with_rois
 
-def split_rois_into_fragments(images_with_rois, fragment_size=480):
+def crop_rois(images_with_rois):
     """
-    Splits the designated workspace area into many 480x480 size picture fragments.
-    Returns a list of fragments.
+    Crop the images based on the selected ROIs.
+    Returns a list of cropped ROI images.
     """
-    fragments = []
-    fragment_counter = 0
-
+    cropped_rois = []
     for idx, (image, rois) in enumerate(images_with_rois):
-        img_height, img_width = image.shape[:2]
-
         for roi_idx, roi in enumerate(rois):
             x_min, y_min, x_max, y_max = roi
+            cropped_roi = image[y_min:y_max, x_min:x_max].copy()
+            if cropped_roi.size == 0:
+                print(f"Warning: ROI {roi_idx + 1} in image {idx + 1} is empty. Skipping.")
+                continue
+            cropped_rois.append(cropped_roi)
+            print(f"Cropped ROI {roi_idx + 1} from image {idx + 1} and added to fragments.")
 
-            roi_width = x_max - x_min
-            roi_height = y_max - y_min
+    print(f"Total cropped ROIs: {len(cropped_rois)}")
+    return cropped_rois
 
-            # Calculate the number of fragments in x and y directions
-            x_steps = max(1, roi_width // fragment_size)
-            y_steps = max(1, roi_height // fragment_size)
-
-            if x_steps == 1:
-                x_overlap = 0
-            else:
-                x_overlap = (roi_width - fragment_size * x_steps) // max(1, x_steps - 1)
-
-            if y_steps == 1:
-                y_overlap = 0
-            else:
-                y_overlap = (roi_height - fragment_size * y_steps) // max(1, y_steps - 1)
-
-            for i in range(x_steps):
-                for j in range(y_steps):
-                    x_start = x_min + i * (fragment_size - x_overlap)
-                    y_start = y_min + j * (fragment_size - y_overlap)
-                    x_end = x_start + fragment_size
-                    y_end = y_start + fragment_size
-
-                    # Ensure the fragment is within image boundaries
-                    if x_end > img_width:
-                        x_end = img_width
-                        x_start = x_end - fragment_size
-                    if y_end > img_height:
-                        y_end = img_height
-                        y_start = y_end - fragment_size
-
-                    fragment = image[y_start:y_end, x_start:x_end].copy()
-                    fragments.append(fragment)
-                    fragment_counter += 1
-
-    print(f"Total fragments created: {fragment_counter}")
-    return fragments
-
-def save_fragments(fragments, output_dir):
+def save_rois(cropped_rois, output_dir):
     """
-    Saves the fragments into the specified directory.
+    Saves the cropped ROIs into the specified directory.
     """
     os.makedirs(output_dir, exist_ok=True)
-    for idx, fragment in enumerate(fragments):
-        fragment_filename = f"background_{idx+1}.png"
-        fragment_path = os.path.join(output_dir, fragment_filename)
-        cv2.imwrite(fragment_path, fragment)
-        print(f"Saved fragment: {fragment_path}")
+    for idx, roi in enumerate(cropped_rois):
+        roi_filename = f"background_roi_{idx+1}.png"
+        roi_path = os.path.join(output_dir, roi_filename)
+        cv2.imwrite(roi_path, roi)
+        print(f"Saved ROI fragment: {roi_path}")
 
 def capture_backgrounds(config, max_retries=5):
     """
-    Main function to capture workspace images, select ROIs, split into fragments, and save them.
+    Main function to capture workspace images, select ROIs, crop them, and save as background fragments.
     """
     # Step 1: Capture workspace images
     workspace_images = capture_workspace_images(config, max_retries=max_retries)
@@ -255,12 +222,16 @@ def capture_backgrounds(config, max_retries=5):
     # Step 2: Allow user to select ROIs on images
     images_with_rois = select_rois_on_images(workspace_images)
 
-    # Step 3: Split ROIs into fragments
-    fragments = split_rois_into_fragments(images_with_rois, fragment_size=480)
+    # Step 3: Crop ROIs from images
+    cropped_rois = crop_rois(images_with_rois)
 
-    # Step 4: Save fragments into MVPCD/data/backgrounds
+    if not cropped_rois:
+        print("No ROI fragments created. Ensure ROIs are correctly selected.")
+        sys.exit(1)
+
+    # Step 4: Save cropped ROIs into MVPCD/data/backgrounds
     backgrounds_dir = os.path.join(project_root, 'data', 'backgrounds')
-    save_fragments(fragments, backgrounds_dir)
+    save_rois(cropped_rois, backgrounds_dir)
 
     print("Background capturing and processing completed.")
 

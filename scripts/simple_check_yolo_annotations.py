@@ -63,7 +63,7 @@ def draw_annotations(image, annotations, class_names):
             y_max = y_center_abs + height_abs // 2
             
             # Draw bounding box
-            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 0, 0), 2)
             
             # Put class name if available
             if class_names and class_id < len(class_names):
