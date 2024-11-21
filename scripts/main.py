@@ -22,7 +22,7 @@ from run_inference import run_inference
 from split_dataset import split_dataset
 from archive_dataset import archive_dataset
 from capture_backgrounds import capture_backgrounds
-from replace_background_with_random_images import replace_images_with_mosaic
+from replace_background_with_random_insert import replace_images_with_mosaic
 
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
@@ -203,13 +203,21 @@ def main():
             break
         else:
             print("Invalid input. Please enter 1 or 2.")
-    
 
     if train_new_model:
         # Proceed with existing pipeline for training a new model
         # Optionally delete all existing data
-
-        boxormask = input("Do you want to train with masks or bboxes? Input 1 for bbox, or 2 for masks: ")
+        boxormask = ""
+        while boxormask != "1" and boxormask != "2":
+            boxormask = input("Do you want to train with masks or bboxes? Input 1 for bbox, or 2 for masks: ")
+            if boxormask == "1":
+                task = "detection"
+                mode = task
+                break
+            elif boxormask == "2":
+                task = "segmentation"
+                mode = task
+                break
 
         classes_to_add = []
         while True:
@@ -259,11 +267,6 @@ def main():
             # Preprocess images
             print("\nPreprocessing images...")
 
-            if boxormask == "2":
-                mode = "segmentation"
-            else:
-                mode = "box"
-
             preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
 
             if take_background:
@@ -276,6 +279,9 @@ def main():
         # Update mvpcd.yaml with new classes
         update_mvpcd_yaml(classes_to_add)
 
+        image_dir = os.path.join(project_root, config['output']['image_dir'])
+
+        delete_files_in_directory(image_dir)
 
         model_name = "mvpcd_yolov8"
         directory = os.path.join(project_root, 'runs', 'detect')

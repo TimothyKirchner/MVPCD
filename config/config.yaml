@@ -4,19 +4,22 @@ camera:
   - 1280
   - 720
 capture:
-  interval: 0.01
-  num_images: 100
+  interval: 0.15
+  num_images: 50
 chroma_key:
   lower_color:
-  - 0
-  - 80
+  - 62
+  - 212
   - 0
   upper_color:
   - 179
   - 255
   - 255
 class_names:
-- whitething
+- smallthing
+- blackthing
+- testthing
+- yellowthing
 debug:
   bboxes: data/debug/bboxes
   coloringmask: data/debug/coloringmask
@@ -27,11 +30,23 @@ debug:
   maskinyolo: data/debug/maskinyolo
   rgbmask: data/debug/rgbmask
 depth_thresholds:
-  whitething:
-    max: 827
+  blackthing:
+    max: 673
+    min: 500
+  smallthing:
+    max: 673
+    min: 500
+  testthing:
+    max: 682
+    min: 500
+  yellowthing:
+    max: 684
     min: 500
 image_counters:
-  whitething: 101
+  blackthing: 51
+  smallthing: 51
+  testthing: 51
+  yellowthing: 51
 output:
   background_image_dir: data/backgrounds
   depth_dir: data/depth_maps
@@ -42,7 +57,7 @@ output:
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
 rois:
-- height: 177
-  width: 208
+- height: 161
+  width: 176
   x: 616
-  y: 73
+  y: 126
