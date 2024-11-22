@@ -69,5 +69,5 @@ if __name__ == "__main__":
     config = load_config()
     # You need to provide class_name when calling the function
     # For standalone testing, replace 'your_class_name' with an actual class name
-    class_name = 'your_class_name'  # Replace with actual class name
+    class_name = "blackthing"  # Replace with actual class name
     split_dataset(config, class_name)

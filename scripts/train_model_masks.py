@@ -56,30 +56,35 @@ def train_yolo_model_masks(config, task, epochs=100, learning_rate=0.0001, batch
         print(f"Configuration file {mvpcd_yaml_path} does not exist.")
         return
     
-    task_label = task
+    # task_label = task
 
-    print("The detection model is currently: ", task_label, ". Is this coorrect?")
-    check = input("Is this correct? (y/n): ")
-    if check == "n":
-        while task_label != "detection" and task_label != "segment":
-            print("ERROR: Task Label must be either \"detection\" or \"segment\".")
-            task = input("Input \"detection\" for bbox or \"segment\" for masks: ")
-            task_label = task
+    # print("The detection model is currently: ", task_label, ". Is this coorrect?")
+    # check = input("Is this correct? (y/n): ")
+    # if check == "n":
+    #     while task_label != "detection" and task_label != "segment":
+    #         print("ERROR: Task Label must be either \"detection\" or \"segment\".")
+    #         task = input("Input \"detection\" for bbox or \"segment\" for masks: ")
+    #         task_label = task
 
+    # print("Task: ", task)
+    # print("Task_Label: ", task_label)
+
+    # # Select the appropriate model based on the task
+    # if task == 'detection':
+    #     model = YOLO('yolov8s.pt')  # YOLOv8 Small detection model
+    #     project_name = 'mvpcd_yolov8_detect'
+    #     task_label = 'detect'
+    # else:
+    #     model = YOLO('yolov8s-seg.pt')  # YOLOv8 Small segmentation model
+    #     project_name = 'mvpcd_yolov8_seg'
+    #     task_label = 'segment'
+    
+    project_name = 'mvpcd_yolov8_detect'
+    model = YOLO('yolov8s.pt')  # YOLOv8 Small detection model
+    task = "detection"
+    task_label = 'detect'
     print("Task: ", task)
-    print("Task_Label: ", task_label)
-
-    # Select the appropriate model based on the task
-    if task == 'detection':
-        model = YOLO('yolov8s.pt')  # YOLOv8 Small detection model
-        project_name = 'mvpcd_yolov8_detect'
-        task_label = 'detect'
-    else:
-        model = YOLO('yolov8s-seg.pt')  # YOLOv8 Small segmentation model
-        project_name = 'mvpcd_yolov8_seg'
-        task_label = 'segment'
-
-    print("Task: ", task)
+    print("Task_label: ", task_label)
 
     # Set up training parameters
     model.train(
@@ -96,6 +101,22 @@ def train_yolo_model_masks(config, task, epochs=100, learning_rate=0.0001, batch
         weight_decay=0.00005,  # Adjust regularization if needed
         task=task_label, # Specify the task
         optimizer='AdamW',  # Use AdamW optimizer
+        # scale=0.5,
+        # translate=0.1,
+        # hsv_v=0.4,
+        # degrees=0.05,
+        # hsv_h=0.015,
+        # hsv_s=0.7,
+        # shear=0.05,
+        # flipud=0.05,
+        # fliplr=0.05,
+        # perspective=0.0,
+        # mosaic=0.1,
+        # copy_paste=0.025,
+        # mixup=0.05,
+        # bgr=0.025,
+        # erasing=0.4,
+        # crop_fraction=1.0,
     )
     latest_model_path = model.ckpt_path  # Or use model.last
     print("Path to the last trained model:", latest_model_path)

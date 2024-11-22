@@ -111,18 +111,23 @@ def main():
     
     print(f"Found {len(images)} images in '{IMAGES_DIR}'.")
     
-    for idx, image_filename in enumerate(images, 1):
+    idx = 0  # Start index
+
+    while idx < len(images):
+        image_filename = images[idx]
         image_path = os.path.join(IMAGES_DIR, image_filename)
         label_path = get_corresponding_label(image_filename, LABELS_DIR)
         
         if not os.path.exists(label_path):
-            print(f"[{idx}/{len(images)}] Label file '{label_path}' not found for image '{image_filename}'. Skipping.")
+            print(f"[{idx + 1}/{len(images)}] Label file '{label_path}' not found for image '{image_filename}'. Skipping.")
+            idx += 1
             continue
         
         # Read image
         image = cv2.imread(image_path)
         if image is None:
-            print(f"[{idx}/{len(images)}] Failed to read image '{image_path}'. Skipping.")
+            print(f"[{idx + 1}/{len(images)}] Failed to read image '{image_path}'. Skipping.")
+            idx += 1
             continue
         
         # Read label
@@ -140,17 +145,41 @@ def main():
         annotated_image = draw_annotations(image.copy(), annotations, class_names)
         
         # Display the image
-        window_name = f"Annotation {idx}/{len(images)}: {image_filename}"
+        window_name = f"Annotation {idx + 1}/{len(images)}: {image_filename}"
         cv2.imshow(window_name, annotated_image)
-        print(f"[{idx}/{len(images)}] Displaying '{image_filename}'. Press any key to continue or 'q' to quit.")
-        
-        key = cv2.waitKey(0) & 0xFF
+        print(f"[{idx + 1}/{len(images)}] Displaying '{image_filename}'.")
+        cv2.waitKey(0)
         cv2.destroyAllWindows()
         
-        if key == ord('q') or key == ord('Q'):
-            print("Quitting annotation check.")
-            break
-    
+        # Prompt user for input
+        while True:
+            user_input = input("Enter 'n' for next image, 'b' for previous image, 'q' to quit, or enter an image number to jump to: ").strip()
+            if user_input.lower() == 'q':
+                print("Quitting annotation check.")
+                return
+            elif user_input.lower() == 'n' or user_input == '':
+                idx += 1
+                break
+            elif user_input.lower() == 'b':
+                if idx > 0:
+                    idx -= 1
+                else:
+                    print("Already at the first image. Cannot go back further.")
+                break
+            else:
+                try:
+                    jump_to_idx = int(user_input) - 1  # Convert to zero-based index
+                    if 0 <= jump_to_idx < len(images):
+                        idx = jump_to_idx
+                        print(f"Jumping to image {idx + 1}")
+                        break
+                    else:
+                        print(f"Invalid image number. Please enter a number between 1 and {len(images)}.")
+                except ValueError:
+                    print("Invalid input. Please enter 'n', 'b', 'q', or a valid image number.")
+        # End of inner while loop
+    # End of main while loop
+
     print("Annotation checking completed.")
 
 if __name__ == "__main__":

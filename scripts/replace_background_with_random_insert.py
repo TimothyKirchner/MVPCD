@@ -248,8 +248,8 @@ def composite_object_with_contour(original_image, mosaic, contour_image, obj_bbo
     h = int(height)
 
     # Ensure the bbox is within image bounds
-    x = max(0, x)
-    y = max(0, y)
+    x = max(0, min(x, img_width - w))
+    y = max(0, min(y, img_height - h))
     w = min(w, img_width - x)
     h = min(h, img_height - y)
 
@@ -387,7 +387,7 @@ def replace_images_with_mosaic(config, class_name):
             continue
 
         # Get list of all image files
-        image_files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        image_files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.png', '.jpg', '.jpeg')) and f.startswith(class_name)]
 
         print(f"\nProcessing {len(image_files)} images in directory: {dir_path}")
 
@@ -440,11 +440,11 @@ def replace_images_with_mosaic(config, class_name):
                 if not line:
                     continue
                 parts = line.split()
-                if len(parts) != 5:
+                if len(parts) < 5:
                     logging.warning(f"Invalid label format in {label_path}: {line}. Skipping this label.")
                     continue
                 class_id = int(parts[0])
-                x_center_norm, y_center_norm, width_norm, height_norm = map(float, parts[1:])
+                x_center_norm, y_center_norm, width_norm, height_norm = map(float, parts[1:5])
 
                 if class_id == config['class_names'].index(class_name):
                     # This object is of the specified class

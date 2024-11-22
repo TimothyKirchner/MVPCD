@@ -23,21 +23,29 @@ def save_config(config, config_path='config/config.yaml'):
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
-def live_depth_feed(config, class_name):
+def live_depth_feed(config, class_name, angle_index):
     camera = initialize_camera(config)
     
     if camera is None:
         print("Camera initialization failed.")
         return
 
-    min_depth = config.get('depth_thresholds', {}).get(class_name, {}).get('min', 500)
-    max_depth = config.get('depth_thresholds', {}).get(class_name, {}).get('max', 1000)
+    # Initialize depth thresholds if not set
+    if 'depth_thresholds' not in config:
+        config['depth_thresholds'] = {}
+    if class_name not in config['depth_thresholds']:
+        config['depth_thresholds'][class_name] = {}
+    if angle_index not in config['depth_thresholds'][class_name]:
+        config['depth_thresholds'][class_name][angle_index] = {'min': 500, 'max': 1000}
+
+    min_depth = config['depth_thresholds'][class_name][angle_index]['min']
+    max_depth = config['depth_thresholds'][class_name][angle_index]['max']
 
     cv2.namedWindow("Live Depth Feed")
     cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
     cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
 
-    print(f"\n--- Adjusting Depth Thresholds for Class '{class_name}' ---")
+    print(f"\n--- Adjusting Depth Thresholds for Class '{class_name}', angle {angle_index} ---")
     print(f"Initial Min Depth: {min_depth} mm, Max Depth: {max_depth} mm\n")
 
     try:
@@ -62,12 +70,10 @@ def live_depth_feed(config, class_name):
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
-                # Save the updated depth thresholds for the specific class
-                if 'depth_thresholds' not in config:
-                    config['depth_thresholds'] = {}
-                config['depth_thresholds'][class_name] = {'min': min_depth, 'max': max_depth}
+                # Save the updated depth thresholds for the specific class and angle
+                config['depth_thresholds'][class_name][angle_index] = {'min': min_depth, 'max': max_depth}
                 save_config(config)
-                print(f"Depth thresholds for class '{class_name}' saved: Min={min_depth} mm, Max={max_depth} mm")
+                print(f"Depth thresholds for class '{class_name}', angle {angle_index} saved: Min={min_depth} mm, Max={max_depth} mm")
                 break
             elif key == ord('r'):
                 # Reinitialize the camera and viewer
@@ -100,8 +106,9 @@ def live_depth_feed(config, class_name):
 
 if __name__ == "__main__":
     config = load_config()
-    if len(sys.argv) < 2:
-        print("Usage: python live_depth_feed.py [classname]")
+    if len(sys.argv) < 3:
+        print("Usage: python live_depth_feed.py [classname] [angle_index]")
         sys.exit(1)
     class_name = sys.argv[1]
-    live_depth_feed(config, class_name)
+    angle_index = int(sys.argv[2])
+    live_depth_feed(config, class_name, angle_index)

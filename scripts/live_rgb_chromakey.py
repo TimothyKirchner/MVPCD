@@ -23,13 +23,23 @@ def save_config(config, config_path='config/config.yaml'):
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
-def live_rgb_chromakey(config, class_name):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+def live_rgb_chromakey(config, class_name, angle_index):
     camera = initialize_camera(config)
     chroma_key_settings = config.get('chroma_key_settings', {})
 
-    lower_h, lower_s, lower_v = config.get('chroma_key', {}).get('lower_color', [0, 0, 0])
-    upper_h, upper_s, upper_v = config.get('chroma_key', {}).get('upper_color', [179, 255, 255])
+    # Initialize default chroma key values if not set
+    if 'chroma_key_settings' not in config:
+        config['chroma_key_settings'] = {}
+    if class_name not in config['chroma_key_settings']:
+        config['chroma_key_settings'][class_name] = {}
+    if angle_index not in config['chroma_key_settings'][class_name]:
+        config['chroma_key_settings'][class_name][angle_index] = {
+            'lower_color': [0, 0, 0],
+            'upper_color': [179, 255, 255]
+        }
+
+    lower_h, lower_s, lower_v = config['chroma_key_settings'][class_name][angle_index]['lower_color']
+    upper_h, upper_s, upper_v = config['chroma_key_settings'][class_name][angle_index]['upper_color']
 
     cv2.namedWindow("Live RGB Chroma-Keying")
     cv2.createTrackbar('Lower H', 'Live RGB Chroma-Keying', lower_h, 179, lambda x: None)
@@ -38,7 +48,7 @@ def live_rgb_chromakey(config, class_name):
     cv2.createTrackbar('Upper H', 'Live RGB Chroma-Keying', upper_h, 179, lambda x: None)
     cv2.createTrackbar('Upper S', 'Live RGB Chroma-Keying', upper_s, 255, lambda x: None)
     cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
-    print(f"Adjusting chroma key for class: {class_name}")
+    print(f"Adjusting chroma key for class: {class_name}, angle {angle_index}")
 
     try:
         while True:
@@ -70,8 +80,9 @@ def live_rgb_chromakey(config, class_name):
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
-                config['chroma_key']['lower_color'] = [int(lower_h), int(lower_s), int(lower_v)]
-                config['chroma_key']['upper_color'] = [int(upper_h), int(upper_s), int(upper_v)]
+                # Save chroma key settings for this class and angle
+                config['chroma_key_settings'][class_name][angle_index]['lower_color'] = [int(lower_h), int(lower_s), int(lower_v)]
+                config['chroma_key_settings'][class_name][angle_index]['upper_color'] = [int(upper_h), int(upper_s), int(upper_v)]
                 save_config(config)
                 print("Chroma key settings saved.")
                 break
@@ -82,4 +93,9 @@ def live_rgb_chromakey(config, class_name):
 
 if __name__ == "__main__":
     config = load_config()
-    live_rgb_chromakey(config)
+    if len(sys.argv) < 3:
+        print("Usage: python live_rgb_chromakey.py [classname] [angle_index]")
+        sys.exit(1)
+    class_name = sys.argv[1]
+    angle_index = int(sys.argv[2])
+    live_rgb_chromakey(config, class_name, angle_index)

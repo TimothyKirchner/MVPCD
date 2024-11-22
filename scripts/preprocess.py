@@ -35,38 +35,23 @@ def parse_arguments():
     )
     return parser.parse_args()
 
-def get_roi_mask(image_shape, roi):
+def get_roi_mask(image_shape, rois):
     height, width = image_shape[:2]
     roi_mask = np.zeros((height, width), dtype=np.uint8)
 
-    # Handle ROI input formats
-    if isinstance(roi, dict):
-        try:
-            x_min = int(roi.get('x', 0))
-            y_min = int(roi.get('y', 0))
-            x_max = x_min + int(roi.get('width', 0))
-            y_max = y_min + int(roi.get('height', 0))
-        except ValueError as e:
-            raise ValueError(f"Invalid ROI values: {roi}. All ROI values must be integers.") from e
-    elif isinstance(roi, (list, tuple)):
-        try:
-            x_min, y_min, x_max, y_max = map(int, roi)
-        except ValueError as e:
-            raise ValueError(f"Invalid ROI values: {roi}. All ROI values must be integers.") from e
-    else:
-        raise TypeError("ROI must be a dictionary or a list/tuple of four integers.")
+    for roi in rois:
+        x_min = int(roi.get('x', 0))
+        y_min = int(roi.get('y', 0))
+        x_max = x_min + int(roi.get('width', 0))
+        y_max = y_min + int(roi.get('height', 0))
 
-    # Debug: Print ROI values and their types
-    print(f"Processing ROI: x_min={x_min} (type: {type(x_min)}), y_min={y_min} (type: {type(y_min)}), "
-          f"x_max={x_max} (type: {type(x_max)}), y_max={y_max} (type: {type(y_max)})")
+        # Ensure ROI coordinates are within image bounds
+        x_min = max(0, min(x_min, width - 1))
+        y_min = max(0, min(y_min, height - 1))
+        x_max = max(0, min(x_max, width))
+        y_max = max(0, min(y_max, height))
 
-    # Ensure ROI coordinates are within image bounds
-    x_min = max(0, min(x_min, width - 1))
-    y_min = max(0, min(y_min, height - 1))
-    x_max = max(0, min(x_max, width))
-    y_max = max(0, min(y_max, height))
-
-    roi_mask[y_min:y_max, x_min:x_max] = 1
+        roi_mask[y_min:y_max, x_min:x_max] = 1
 
     return roi_mask
 
@@ -151,17 +136,6 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             if not os.path.exists(directory):
                 os.makedirs(directory)
 
-        chroma_key = config.get('chroma_key', {})
-        lower_color = np.array(chroma_key.get('lower_color', [0, 0, 0]), dtype=np.uint8)
-        upper_color = np.array(chroma_key.get('upper_color', [179, 255, 255]), dtype=np.uint8)
-
-        # Fixed ROIs from config
-        rois_config = config.get('rois', [])
-
-        if not rois_config:
-            print("Error: 'rois' section is missing or empty in the configuration file.")
-            sys.exit(1)
-
         class_names = config.get('class_names', [])
         class_id_map = {name: idx for idx, name in enumerate(class_names)}
 
@@ -187,19 +161,35 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
 
             img_height, img_width = image.shape[:2]
 
-            # Use the first ROI from the list
-            roi_config = rois_config[0]
+            # Extract angle index from filename
+            parts = filename.split('_')
+            if len(parts) >= 3 and parts[1].startswith('angle'):
+                angle_index = int(parts[1].replace('angle', ''))
+            else:
+                angle_index = 0  # Default angle index if not found
+
+            # Get ROIs for the specific class and angle
+            rois_config = config.get('rois', {}).get(class_name, {}).get(angle_index, [])
+
+            if not rois_config:
+                print(f"Error: 'rois' not defined for class '{class_name}', angle {angle_index}.")
+                sys.exit(1)
 
             # Generate ROI mask
-            roi_mask = get_roi_mask(image.shape, roi_config)
+            roi_mask = get_roi_mask(image.shape, rois_config)
+
+            # Get chroma key settings for the specific class and angle
+            chroma_key_settings = config.get('chroma_key_settings', {}).get(class_name, {}).get(angle_index, {})
+            lower_color = np.array(chroma_key_settings.get('lower_color', [0, 0, 0]), dtype=np.uint8)
+            upper_color = np.array(chroma_key_settings.get('upper_color', [179, 255, 255]), dtype=np.uint8)
 
             # Apply chroma key on the image
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
             chroma_keyed = apply_chroma_key(hsv, lower_color, upper_color)
 
             # Load depth map
-            depth_filename = filename.rsplit('.', 1)[0] + '.npy'
-            depth_path = os.path.join(depth_dir, f"depth_{depth_filename}")
+            depth_filename = f"depth_{filename}".replace('.png', '.npy')
+            depth_path = os.path.join(depth_dir, depth_filename)
             depth_map = load_depth_map(depth_path)
 
             if depth_map is None:
@@ -207,8 +197,8 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
                 print(f"Depth map not found for {filename}. Skipping.")
                 continue
 
-            # Get depth thresholds for the specific class
-            depth_threshold = config.get('depth_thresholds', {}).get(class_name, {})
+            # Get depth thresholds for the specific class and angle
+            depth_threshold = config.get('depth_thresholds', {}).get(class_name, {}).get(angle_index, {})
             min_depth = depth_threshold.get('min', 500)
             max_depth = depth_threshold.get('max', 2000)
 

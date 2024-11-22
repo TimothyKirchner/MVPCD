@@ -21,8 +21,7 @@ def save_config(config, config_path='config/config.yaml'):
     with open(config_path, 'w') as file:
         yaml.dump(config, file)
 
-def set_rois(config):
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+def set_rois(config, class_name, angle_index):
     camera = initialize_camera(config)
     image, _ = capture_frame(camera)
     camera.close()
@@ -47,12 +46,21 @@ def set_rois(config):
     cv2.destroyAllWindows()
 
     if rois:
-        config['rois'] = rois
+        if 'rois' not in config:
+            config['rois'] = {}
+        if class_name not in config['rois']:
+            config['rois'][class_name] = {}
+        config['rois'][class_name][angle_index] = rois
         save_config(config)
-        print(f"{len(rois)} ROI(s) saved in config/config.yaml")
+        print(f"{len(rois)} ROI(s) saved in config/config.yaml for class '{class_name}', angle {angle_index}")
     else:
         print("No ROIs defined.")
 
 if __name__ == "__main__":
     config = load_config()
-    set_rois(config)
+    if len(sys.argv) < 3:
+        print("Usage: python set_rois.py [classname] [angle_index]")
+        sys.exit(1)
+    class_name = sys.argv[1]
+    angle_index = int(sys.argv[2])
+    set_rois(config, class_name, angle_index)
