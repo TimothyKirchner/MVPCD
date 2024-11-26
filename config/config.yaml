@@ -4,15 +4,15 @@ camera:
   - 1280
   - 720
 capture:
-  interval: 0.05
-  num_images: 100
+  interval: 0.1
+  num_images: 152
 chroma_key_settings:
   blackthing:
     0:
       lower_color:
+      - 24
       - 0
-      - 0
-      - 78
+      - 73
       upper_color:
       - 179
       - 255
@@ -21,7 +21,7 @@ chroma_key_settings:
       lower_color:
       - 0
       - 0
-      - 38
+      - 72
       upper_color:
       - 179
       - 255
@@ -30,7 +30,90 @@ chroma_key_settings:
       lower_color:
       - 0
       - 0
+      - 51
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 0
+      - 0
+      - 47
+      upper_color:
+      - 179
+      - 255
+      - 255
+  fanthing:
+    0:
+      lower_color:
+      - 30
+      - 73
+      - 65
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 35
+      - 114
+      - 68
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
+      - 0
+      - 72
+      - 75
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 36
+      - 66
+      - 47
+      upper_color:
+      - 179
+      - 255
+      - 255
+  orangething:
+    0:
+      lower_color:
+      - 31
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 45
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
       - 54
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 56
+      - 0
+      - 0
       upper_color:
       - 179
       - 255
@@ -39,73 +122,17 @@ chroma_key_settings:
     0:
       lower_color:
       - 0
-      - 95
-      - 0
+      - 120
+      - 93
       upper_color:
       - 179
       - 255
       - 255
     1:
-      lower_color:
-      - 0
-      - 64
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    2:
-      lower_color:
-      - 0
-      - 66
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-  testthing:
-    0:
-      lower_color:
-      - 0
-      - 102
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    1:
-      lower_color:
-      - 0
-      - 99
-      - 39
-      upper_color:
-      - 179
-      - 255
-      - 255
-    2:
       lower_color:
       - 0
       - 101
-      - 30
-      upper_color:
-      - 179
-      - 255
-      - 255
-  whitething:
-    0:
-      lower_color:
-      - 0
-      - 53
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    1:
-      lower_color:
-      - 0
-      - 87
-      - 0
+      - 82
       upper_color:
       - 179
       - 255
@@ -113,7 +140,16 @@ chroma_key_settings:
     2:
       lower_color:
       - 0
-      - 81
+      - 106
+      - 105
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 0
+      - 231
       - 0
       upper_color:
       - 179
@@ -122,7 +158,7 @@ chroma_key_settings:
   yellowthing:
     0:
       lower_color:
-      - 58
+      - 46
       - 0
       - 0
       upper_color:
@@ -131,7 +167,7 @@ chroma_key_settings:
       - 255
     1:
       lower_color:
-      - 42
+      - 45
       - 0
       - 0
       upper_color:
@@ -140,7 +176,16 @@ chroma_key_settings:
       - 255
     2:
       lower_color:
-      - 43
+      - 55
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 66
       - 0
       - 0
       upper_color:
@@ -148,12 +193,13 @@ chroma_key_settings:
       - 255
       - 255
 class_names:
-- smallthing
 - blackthing
-- testthing
 - yellowthing
-- whitething
+- smallthing
+- orangething
+- fanthing
 debug:
+  backgrounds: data/backgrounds
   bboxes: data/debug/bboxes
   coloringmask: data/debug/coloringmask
   coloringmask_random_bg: data/debug/coloringmask_random_bg
@@ -165,79 +211,101 @@ debug:
 depth_thresholds:
   blackthing:
     0:
-      max: 647
+      max: 646
       min: 500
     1:
-      max: 669
+      max: 633
       min: 500
     2:
-      max: 625
+      max: 596
+      min: 500
+    3:
+      max: 677
+      min: 500
+  fanthing:
+    0:
+      max: 631
+      min: 500
+    1:
+      max: 630
+      min: 500
+    2:
+      max: 637
+      min: 500
+    3:
+      max: 603
+      min: 500
+  orangething:
+    0:
+      max: 632
+      min: 500
+    1:
+      max: 644
+      min: 500
+    2:
+      max: 635
+      min: 500
+    3:
+      max: 630
       min: 500
   smallthing:
     0:
-      max: 643
+      max: 636
       min: 500
     1:
-      max: 639
+      max: 647
       min: 500
     2:
-      max: 666
+      max: 679
       min: 500
-  testthing:
-    0:
-      max: 656
-      min: 500
-    1:
-      max: 657
-      min: 500
-    2:
-      max: 631
-      min: 500
-  whitething:
-    0:
-      max: 596
-      min: 500
-    1:
-      max: 626
-      min: 500
-    2:
-      max: 656
+    3:
+      max: 652
       min: 500
   yellowthing:
     0:
-      max: 647
+      max: 652
       min: 500
     1:
-      max: 660
+      max: 651
       min: 500
     2:
-      max: 622
+      max: 671
+      min: 500
+    3:
+      max: 592
       min: 500
 image_counters:
   blackthing:
-    0: 35
-    1: 34
-    2: 34
+    0: 39
+    1: 39
+    2: 39
+    3: 39
+  fanthing:
+    0: 39
+    1: 39
+    2: 39
+  orangething:
+    0: 39
+    1: 39
+    2: 39
+    3: 39
   smallthing:
-    0: 35
-    1: 34
-    2: 34
-  testthing:
-    0: 35
-    1: 34
-    2: 34
-  whitething:
-    0: 35
-    1: 34
+    0: 39
+    1: 39
+    2: 39
+    3: 39
   yellowthing:
-    0: 35
-    1: 34
-    2: 34
+    0: 39
+    1: 39
+    2: 39
+    3: 39
 output:
   background_image_dir: data/backgrounds
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
+  test_image_dir: data/images/test
+  test_label_dir: data/labels/test
   train_image_dir: data/images/train
   train_label_dir: data/labels/train
   val_image_dir: data/images/val
@@ -245,89 +313,106 @@ output:
 rois:
   blackthing:
     0:
-    - height: 190
-      width: 197
-      x: 536
-      y: 133
+    - height: 205
+      width: 215
+      x: 552
+      y: 126
     1:
-    - height: 177
-      width: 170
-      x: 967
-      y: 133
-    - height: 198
-      width: 206
-      x: 946
-      y: 127
+    - height: 208
+      width: 223
+      x: 553
+      y: 123
     2:
-    - height: 206
-      width: 216
-      x: 50
+    - height: 233
+      width: 251
+      x: 37
       y: 68
+    3:
+    - height: 208
+      width: 192
+      x: 1048
+      y: 74
+  fanthing:
+    0:
+    - height: 171
+      width: 178
+      x: 471
+      y: 110
+    1:
+    - height: 213
+      width: 213
+      x: 452
+      y: 99
+    2:
+    - height: 212
+      width: 220
+      x: 448
+      y: 99
+    3:
+    - height: 247
+      width: 267
+      x: 421
+      y: 70
+  orangething:
+    0:
+    - height: 140
+      width: 144
+      x: 493
+      y: 129
+    1:
+    - height: 223
+      width: 218
+      x: 449
+      y: 91
+    2:
+    - height: 223
+      width: 236
+      x: 442
+      y: 90
+    3:
+    - height: 230
+      width: 247
+      x: 435
+      y: 76
   smallthing:
     0:
-    - height: 143
-      width: 159
-      x: 531
-      y: 146
+    - height: 217
+      width: 255
+      x: 467
+      y: 103
     1:
-    - height: 130
-      width: 163
-      x: 106
-      y: 149
+    - height: 171
+      width: 189
+      x: 498
+      y: 120
     2:
-    - height: 137
-      width: 126
-      x: 1087
-      y: 147
-  testthing:
-    0:
-    - height: 155
-      width: 134
-      x: 615
-      y: 135
-    1:
-    - height: 151
-      width: 143
-      x: 984
-      y: 143
-    2:
-    - height: 127
-      width: 140
-      x: 105
-      y: 162
-    - height: 156
-      width: 177
-      x: 85
-      y: 152
-  whitething:
-    0:
-    - height: 201
-      width: 208
-      x: 480
-      y: 143
-    1:
-    - height: 225
-      width: 228
-      x: 40
-      y: 130
-    2:
-    - height: 219
-      width: 211
-      x: 912
-      y: 150
+    - height: 154
+      width: 152
+      x: 1011
+      y: 110
+    3:
+    - height: 135
+      width: 166
+      x: 482
+      y: 140
   yellowthing:
     0:
-    - height: 153
-      width: 164
-      x: 595
-      y: 177
-    1:
-    - height: 160
+    - height: 147
       width: 150
-      x: 979
-      y: 177
+      x: 606
+      y: 164
+    1:
+    - height: 224
+      width: 240
+      x: 562
+      y: 102
     2:
-    - height: 132
-      width: 167
-      x: 70
-      y: 179
+    - height: 251
+      width: 244
+      x: 993
+      y: 88
+    3:
+    - height: 264
+      width: 268
+      x: 14
+      y: 55

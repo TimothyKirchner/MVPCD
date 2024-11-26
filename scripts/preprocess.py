@@ -65,11 +65,13 @@ def delete_files_for_image(filename, config):
     # Directories
     image_dirs = [
         os.path.join(project_root, config['output']['train_image_dir']),
-        os.path.join(project_root, config['output']['val_image_dir'])
+        os.path.join(project_root, config['output']['val_image_dir']),
+        os.path.join(project_root, config['output']['test_image_dir'])     # Added Test Image Directory
     ]
     label_dirs = [
         os.path.join(project_root, config['output']['train_label_dir']),
-        os.path.join(project_root, config['output']['val_label_dir'])
+        os.path.join(project_root, config['output']['val_label_dir']),
+        os.path.join(project_root, config['output']['test_label_dir'])     # Added Test Label Directory
     ]
     debug_dirs = [os.path.join(project_root, d) for d in config.get('debug', {}).values()]
 
@@ -99,7 +101,7 @@ def delete_files_for_image(filename, config):
                 print(f"Deleted debug file: {file_path}")
 
 def preprocess_images(config, processedimages, counter, mode, class_name):
-    splits = ['train', 'val']
+    splits = ['train', 'val', 'test']    # Added 'test' split
 
     # Prompt user to check bounding box sizes
     check_bbox_size = False
@@ -164,7 +166,10 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
             # Extract angle index from filename
             parts = filename.split('_')
             if len(parts) >= 3 and parts[1].startswith('angle'):
-                angle_index = int(parts[1].replace('angle', ''))
+                try:
+                    angle_index = int(parts[1].replace('angle', ''))
+                except ValueError:
+                    angle_index = 0  # Default angle index if not found or invalid
             else:
                 angle_index = 0  # Default angle index if not found
 
