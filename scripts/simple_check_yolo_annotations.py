@@ -52,27 +52,27 @@ def draw_annotations(image, annotations, class_names):
             
             # Convert normalized coordinates to absolute
             img_height, img_width = image.shape[:2]
-            x_center_abs = int(x_center * img_width)
-            y_center_abs = int(y_center * img_height)
-            width_abs = int(width * img_width)
-            height_abs = int(height * img_height)
+            x_center_abs = x_center * img_width
+            y_center_abs = y_center * img_height
+            width_abs = width * img_width
+            height_abs = height * img_height
             
-            x_min = x_center_abs - width_abs // 2
-            y_min = y_center_abs - height_abs // 2
-            x_max = x_center_abs + width_abs // 2
-            y_max = y_center_abs + height_abs // 2
+            x_min = int(x_center_abs - width_abs / 2)
+            y_min = int(y_center_abs - height_abs / 2)
+            x_max = int(x_center_abs + width_abs / 2)
+            y_max = int(y_center_abs + height_abs / 2)
             
             # Draw bounding box
-            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 0, 0), 2)
+            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             
             # Put class name if available
             if class_names and class_id < len(class_names):
                 class_name = class_names[class_id]
                 cv2.putText(image, class_name, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 
-                            0.5, (0, 255, 0), 2)
+                            0.6, (0, 255, 0), 2)
             else:
                 cv2.putText(image, str(class_id), (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 
-                            0.5, (0, 255, 0), 2)
+                            0.6, (0, 255, 0), 2)
             
             # Draw segmentation mask if available
             if len(ann) > 5:
@@ -112,21 +112,22 @@ def main():
     print(f"Found {len(images)} images in '{IMAGES_DIR}'.")
     
     idx = 0  # Start index
-
-    while idx < len(images):
+    total_images = len(images)
+    
+    while 0 <= idx < total_images:
         image_filename = images[idx]
         image_path = os.path.join(IMAGES_DIR, image_filename)
         label_path = get_corresponding_label(image_filename, LABELS_DIR)
         
         if not os.path.exists(label_path):
-            print(f"[{idx + 1}/{len(images)}] Label file '{label_path}' not found for image '{image_filename}'. Skipping.")
+            print(f"[{idx + 1}/{total_images}] Label file '{label_path}' not found for image '{image_filename}'. Skipping.")
             idx += 1
             continue
         
         # Read image
         image = cv2.imread(image_path)
         if image is None:
-            print(f"[{idx + 1}/{len(images)}] Failed to read image '{image_path}'. Skipping.")
+            print(f"[{idx + 1}/{total_images}] Failed to read image '{image_path}'. Skipping.")
             idx += 1
             continue
         
@@ -145,41 +146,77 @@ def main():
         annotated_image = draw_annotations(image.copy(), annotations, class_names)
         
         # Display the image
-        window_name = f"Annotation {idx + 1}/{len(images)}: {image_filename}"
-        cv2.imshow(window_name, annotated_image)
-        print(f"[{idx + 1}/{len(images)}] Displaying '{image_filename}'.")
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        window_name = f"Annotation {idx + 1}/{total_images}: {image_filename}"
         
-        # Prompt user for input
+        # Resize window to fit on screen if necessary
+        screen_res = (1280, 720)
+        scale_width = screen_res[0] / annotated_image.shape[1]
+        scale_height = screen_res[1] / annotated_image.shape[0]
+        scale = min(scale_width, scale_height)
+        if scale < 1:
+            window_width = int(annotated_image.shape[1] * scale)
+            window_height = int(annotated_image.shape[0] * scale)
+            annotated_image = cv2.resize(annotated_image, (window_width, window_height))
+        
         while True:
-            user_input = input("Enter 'n' for next image, 'b' for previous image, 'q' to quit, or enter an image number to jump to: ").strip()
-            if user_input.lower() == 'q':
-                print("Quitting annotation check.")
-                return
-            elif user_input.lower() == 'n' or user_input == '':
+            # Display instructions
+            display_image = annotated_image.copy()
+            instructions = "Press 'e' for next, 'q' for previous, 'c' to jump to image, 'Esc' to exit."
+            cv2.putText(display_image, instructions, (10, 25), cv2.FONT_HERSHEY_COMPLEX, 
+                        1.0, (0, 255, 255), 1, cv2.LINE_AA)
+            cv2.imshow(window_name, display_image)
+            key = cv2.waitKey(0) & 0xFF  # Wait for key press
+            
+            if key == ord('e'):  # Next image
                 idx += 1
                 break
-            elif user_input.lower() == 'b':
-                if idx > 0:
-                    idx -= 1
-                else:
-                    print("Already at the first image. Cannot go back further.")
+            elif key == ord('q'):  # Previous image
+                idx -= 1
+                if idx < 0:
+                    idx = 0
+                    print("Already at the first image.")
                 break
-            else:
-                try:
-                    jump_to_idx = int(user_input) - 1  # Convert to zero-based index
-                    if 0 <= jump_to_idx < len(images):
-                        idx = jump_to_idx
-                        print(f"Jumping to image {idx + 1}")
+            elif key == ord('c'):  # Jump to image number
+                # Enter input mode
+                input_str = ''
+                input_mode = True
+                while input_mode:
+                    # Display input prompt
+                    prompt_image = display_image.copy()
+                    prompt_text = f"Enter image number (1-{total_images}): {input_str}"
+                    cv2.putText(prompt_image, prompt_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 
+                                0.7, (0, 255, 255), 2, cv2.LINE_AA)
+                    cv2.imshow(window_name, prompt_image)
+                    key_input = cv2.waitKey(0) & 0xFF
+                    if ord('0') <= key_input <= ord('9'):
+                        input_str += chr(key_input)
+                    elif key_input == 8 or key_input == 255:  # Backspace (some systems use 8, others 255)
+                        input_str = input_str[:-1]
+                    elif key_input == 13 or key_input == 10:  # Enter key
+                        if input_str.isdigit():
+                            new_idx = int(input_str) - 1
+                            if 0 <= new_idx < total_images:
+                                idx = new_idx
+                                input_mode = False
+                                break
+                            else:
+                                print(f"Invalid image number. Please enter a number between 1 and {total_images}.")
+                                input_str = ''
+                        else:
+                            print("Please enter a valid number.")
+                            input_str = ''
+                    elif key_input == 27:  # Escape key
+                        input_mode = False
                         break
-                    else:
-                        print(f"Invalid image number. Please enter a number between 1 and {len(images)}.")
-                except ValueError:
-                    print("Invalid input. Please enter 'n', 'b', 'q', or a valid image number.")
-        # End of inner while loop
-    # End of main while loop
-
+                if not input_mode:
+                    break
+            elif key == 27:  # Escape key
+                print("Exiting annotation check.")
+                cv2.destroyAllWindows()
+                return
+            else:
+                print("Invalid key. Please press 'e', 'q', 'c', or 'Esc'.")
+        cv2.destroyAllWindows()
     print("Annotation checking completed.")
 
 if __name__ == "__main__":

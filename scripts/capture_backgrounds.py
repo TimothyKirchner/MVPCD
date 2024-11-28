@@ -216,6 +216,7 @@ def capture_backgrounds(config, max_retries=5):
     """
     Main function to capture workspace images, select ROIs, crop them, and save as background fragments.
     """
+    print("It is adviced to designate the Workspace you want to work in, in realistic conditions, take a picture with c, then take more pictures if the workspace can be varied in its condition (clean/dirty, blue matt on table/green matt). Then you exit the capture with q and draw in bounding boxes in the area of the workspace. It is good and encouraged to draw in many of various choices. \"Random\" Boxes are fine as they give the mosaic algorithm more choice of sizes to fill out the background. ")
     # Step 1: Capture workspace images
     workspace_images = capture_workspace_images(config, max_retries=max_retries)
 

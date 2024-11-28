@@ -29,7 +29,7 @@ def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
     config_full_path = os.path.join(project_root, config_path)
     print(f"Configuration file '{config_full_path}' not found. Creating a new one.")
-    num_images = input("How many images should be taken?: ")
+    num_images = input("How many images should be taken per object?: ")
     try:
         num_images = int(num_images)
     except ValueError:
@@ -203,10 +203,20 @@ def main():
             break
         else:
             print("Invalid input. Please enter 1 or 2.")
+    
+    remove_list = []
 
-    delete_data = input("Do you want to delete all existing data (images, labels) and reset configurations? (y/n): ").strip().lower()
-    if delete_data == 'y':
-        delete_all_data(config)
+    if train_new_model == False:
+        while True:
+            remove_object = input("Do you want to remove an Object? (y/n): ").strip().lower()
+            if remove_object == "y":
+                remove_list.append = input("Input the name of the Class you want to remove: ")
+            elif remove_object == "n":
+                break
+            else:
+                print("ERROR: Input either y or n ")
+
+    delete_all_data(config)
 
     while True:
         choice = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? 1 generally leads to better model performance in your specific workspace. Enter 1 or 2: ").strip()
@@ -237,7 +247,7 @@ def main():
     classes_to_add = []
     class_angles = {}  # Dictionary to store number of angles per class
     while True:
-        add_object = input("Do you want to add an object? (y/n): ").strip().lower()
+        add_object = input("Do you want to add an object to be trained? (y/n): ").strip().lower()
         if add_object == 'y':
             # Prompt for class name
             existing_classes = config.get('class_names', [])
@@ -290,17 +300,20 @@ def main():
 
             # Start Live Depth Viewer
             print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index}...")
+            print(f"\nEither adjust Sliders so that the to be scanned object is to be seen in RED, or, if this is not achievable reliably, its is HIGHLY recommended to have your entire rotating disk be colored red so that the object is guaranteed to be included.")
             print("Press 'r' to restart viewer, 'v' to restart OpenCV window, 'q' to quit and save values.")
             from live_depth_feed import live_depth_feed  # Import here to ensure updated path
             live_depth_feed(config, class_name, angle_index)
 
             # Start Live RGB Viewer
             print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index}...")
+            print(f"\nIt is recommended to keep all high values at max, and then try adjusting the lower values up. Different objects react better to different to h, s and v manipulation. Change values so that the shape can be seen clearly. It is better to include some of the backgroudn than to not include all of the objevt. Sometimes a combination of increasing h, s and v can work the best.")
             from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
             live_rgb_chromakey(config, class_name, angle_index)
 
             # Set ROI
             print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index}...")
+            print(f"\nBe aware that the object is being rotated. Make sure that the object is always inside the ROI, even if rotated outside the position seen in the cv2 preview.")
             set_rois(config, class_name, angle_index)
 
             # Capture images
@@ -315,6 +328,8 @@ def main():
         # Preprocess images
         print("\nPreprocessing images...")
         preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
+
+    for class_name in classes_to_add:
         if take_background:
             replace_images_with_mosaic(config, class_name=class_name)
             print("Replacing Background with Mosaic of Workspace.")
@@ -342,12 +357,17 @@ def main():
         model_name = f"{model_name}_{counter}"
         counter += 1
 
-    archiving = input("Do you want to archive the current dataset? (y/n): ").strip().lower()
-    print("config: ", config)
-    print("model_name: ", model_name)
-    if archiving == "y":
-        archive_dataset(config, model_name)
-        print("Archived dataset")
+    while True:
+        archiving = input("Do you want to archive the current dataset? (y/n): ").strip().lower()
+        print("config: ", config)
+        print("model_name: ", model_name)
+        if archiving == "y":
+            archive_dataset(config, model_name)
+            print("Archived dataset")
+        elif archiving == "n":
+            break
+        else:
+            print("ERROR: Input either \"y\" or \"n\": ")
 
     # Start Training
     print("\n--- Training YOLOv8 Model ---")
@@ -370,7 +390,8 @@ def main():
     batch_size = int(batch_size) if batch_size.isdigit() else 16  
     
     if not train_new_model:
-        restore_archive()
+        print("integrating archived stuff")
+        restore_archive(add_list=classes_to_add, remove_list=remove_list)
 
     train_yolo_model_masks(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, task=boxormask, weight_decay=weight_decay)
 

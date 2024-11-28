@@ -101,9 +101,9 @@ def train_yolo_model_masks(config, task, weight_decay, epochs, learning_rate, ba
         weight_decay=weight_decay,  # Adjust regularization if needed
         task=task_label, # Specify the task
         optimizer='AdamW',  # Use AdamW optimizer
-        cls=1.0,                   # Increased classification loss weight
-        box=0.5,                   # Decreased box loss weight
-        conf=0.001,
+        # cls=1.0,                   # Increased classification loss weight
+        # box=0.5,                   # Decreased box loss weight
+        # conf=0.001,
         workers=8,
         # scale=0.5,
         # translate=0.1,
@@ -113,7 +113,7 @@ def train_yolo_model_masks(config, task, weight_decay, epochs, learning_rate, ba
         # hsv_s=0.7,
         # shear=0.05,
         # flipud=0.05,
-        # fliplr=0.05,
+        # fliplr=0.05,vvv
         # perspective=0.0,
         # mosaic=0.1,
         # copy_paste=0.025,
@@ -165,8 +165,8 @@ if __name__ == "__main__":
     train_yolo_model_masks(
         config,
         task="detection",
-        epochs=100,
-        learning_rate=0.0001,
-        batch_size=4,
-        weight_decay=0.0001
+        epochs=150,
+        learning_rate=0.000125,
+        batch_size=6,
+        weight_decay=0.000075
     )

@@ -87,6 +87,8 @@ def archive_dataset(config, model_name):
         config['output']['train_label_dir'],
         config['output']['val_image_dir'],
         config['output']['val_label_dir'],
+        config['output']['test_image_dir'],
+        config['output']['test_label_dir'],
         config['debug']['bboxes'],
         config['debug']['combined_mask'],
         config['debug']['contours'],
