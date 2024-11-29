@@ -254,8 +254,7 @@ def main():
         if os.path.exists(archive_path):
             # Proceed accordingly
             print(f"\nLoading archived dataset '{selected_archive_folder}'...")
-            restore_archive(add_list=[], remove_list=[], archive_path=archive_path)
-            print(f"Archived dataset '{selected_archive_folder}' loaded successfully.")
+            # Call restore_archive later after determining add_list and remove_list
         else:
             print(f"Archived dataset folder '{selected_archive_folder}' does not exist. Exiting.")
             return
@@ -313,7 +312,7 @@ def main():
                 print("Please enter 'y' or 'n'.")
 
         # Call restore_archive with add_list and remove_list
-        restore_archive(add_list=classes_to_add, remove_list=remove_list, archive_path=archive_path)
+        background_images_restored = restore_archive(add_list=classes_to_add, remove_list=remove_list, archive_path=archive_path)
         print("Archive updated with added and removed classes.")
 
         # Update config['class_names']
@@ -323,28 +322,33 @@ def main():
         config['class_names'].extend(classes_to_add)
         save_config(config)
 
+        # Check if background images exist
+        background_image_dir = os.path.join(project_root, config['output']['background_image_dir'])
+        if not background_images_restored or not os.listdir(background_image_dir):
+            print("No background images found in the archive.")
+            # Ask the user to take new background images
+            while True:
+                bg_choice = input("No background images were found in the archive. Do you want to (1) take new background pictures or (2) proceed without background images? Enter 1 or 2: ").strip()
+                if bg_choice == '1':
+                    # Take new background images
+                    capture_backgrounds(config, max_retries=5)
+                    take_background = True
+                    break
+                elif bg_choice == '2':
+                    take_background = False
+                    break
+                else:
+                    print("Invalid input. Please enter 1 or 2.")
+        else:
+            print("Background images are available.")
+            take_background = True  # Assuming the user wants to use existing backgrounds
+
         # Proceed to capture images and process for the new classes
         if classes_to_add:
             while True:
                 choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? Enter 1 or 2: ").strip()
                 if choice_bg == '1':
-                    # Ask if the user wants to take new background images or use existing ones
-                    while True:
-                        bg_choice = input("Do you want to (1) take new background pictures or (2) use the background images from the existing dataset? Enter 1 or 2: ").strip()
-                        if bg_choice == '1':
-                            # Delete existing background images
-                            background_image_dir = os.path.join(project_root, config['output']['background_image_dir'])
-                            delete_files_in_directory(background_image_dir)
-                            # Capture new background images
-                            capture_backgrounds(config, max_retries=5)
-                            take_background = True
-                            break
-                        elif bg_choice == '2':
-                            # Use existing background images
-                            take_background = True
-                            break
-                        else:
-                            print("Invalid input. Please enter 1 or 2.")
+                    # We have already handled background images above
                     break
                 elif choice_bg == '2':
                     take_background = False

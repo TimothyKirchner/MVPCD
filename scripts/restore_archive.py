@@ -29,7 +29,7 @@ def restore_archive(add_list, remove_list, archive_path):
         'labels_val': 'data/labels/val',
         'images_test': 'data/images/test',
         'labels_test': 'data/labels/test',
-        'backgrounds': 'data/backgrounds'  # Added background images directory
+        'backgrounds': 'data/backgrounds'  # Background images directory
     }
 
     # Ensure target directories exist
@@ -41,58 +41,93 @@ def restore_archive(add_list, remove_list, archive_path):
     src_backgrounds = os.path.join(archive_path, 'data', 'backgrounds')
     dest_backgrounds = os.path.join(project_root, 'data', 'backgrounds')
 
+    background_images_restored = False
     if os.path.exists(src_backgrounds):
         shutil.copytree(src_backgrounds, dest_backgrounds, dirs_exist_ok=True)
         print("Background images restored.")
+        background_images_restored = True
     else:
         print(f"Background images not found in archive at '{src_backgrounds}'.")
 
-    # Function to copy files for a specific class
-    def copy_files(class_name, split):
+    # Function to copy and rename files for a specific class
+    def copy_and_rename_files(class_name, split):
         src_images = os.path.join(archive_path, 'data', 'images', split, class_name)
         src_labels = os.path.join(archive_path, 'data', 'labels', split, class_name)
-        dest_images = os.path.join(project_root, 'data', 'images', split, class_name)
-        dest_labels = os.path.join(project_root, 'data', 'labels', split, class_name)
+        dest_images = os.path.join(project_root, 'data', 'images', split)
+        dest_labels = os.path.join(project_root, 'data', 'labels', split)
 
-        # Create destination class directories
-        os.makedirs(dest_images, exist_ok=True)
-        os.makedirs(dest_labels, exist_ok=True)
+        # Create temporary directories
+        temp_dir = os.path.join(project_root, 'temp')
+        temp_images = os.path.join(temp_dir, 'images', split)
+        temp_labels = os.path.join(temp_dir, 'labels', split)
+        os.makedirs(temp_images, exist_ok=True)
+        os.makedirs(temp_labels, exist_ok=True)
 
-        # Copy image files
+        # Copy image files to temp directory
         if os.path.exists(src_images):
             for file in os.listdir(src_images):
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
-                    shutil.copy2(os.path.join(src_images, file), os.path.join(dest_images, file))
+                    shutil.copy2(os.path.join(src_images, file), os.path.join(temp_images, file))
         else:
             print(f"Source images directory '{src_images}' does not exist.")
 
-        # Copy label files
+        # Copy label files to temp directory
         if os.path.exists(src_labels):
             for file in os.listdir(src_labels):
                 if file.lower().endswith('.txt'):
-                    shutil.copy2(os.path.join(src_labels, file), os.path.join(dest_labels, file))
+                    shutil.copy2(os.path.join(src_labels, file), os.path.join(temp_labels, file))
         else:
             print(f"Source labels directory '{src_labels}' does not exist.")
+
+        # Get existing images and determine starting index
+        existing_images = os.listdir(dest_images)
+        existing_numbers = []
+        for f in existing_images:
+            if f.startswith(class_name + '_') and f.split('_')[-1].split('.')[0].isdigit():
+                num = int(f.split('_')[-1].split('.')[0])
+                existing_numbers.append(num)
+        max_existing_number = max(existing_numbers) if existing_numbers else -1
+
+        # Rename and move images from temp to destination
+        for idx, file in enumerate(sorted(os.listdir(temp_images))):
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+                extension = os.path.splitext(file)[1]
+                new_number = max_existing_number + idx + 1
+                new_filename = f"{class_name}_{new_number}{extension}"
+                shutil.move(os.path.join(temp_images, file), os.path.join(dest_images, new_filename))
+
+        # Rename and move labels from temp to destination
+        for idx, file in enumerate(sorted(os.listdir(temp_labels))):
+            if file.lower().endswith('.txt'):
+                new_number = max_existing_number + idx + 1
+                new_filename = f"{class_name}_{new_number}.txt"
+                shutil.move(os.path.join(temp_labels, file), os.path.join(dest_labels, new_filename))
+
+        # Clean up temp directories
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
     # Add classes from the archive
     for class_name in add_list:
         print(f"Restoring class '{class_name}' from archive...")
         for split in ['train', 'val', 'test']:
-            copy_files(class_name, split)
+            copy_and_rename_files(class_name, split)
         print(f"Class '{class_name}' restored successfully.")
 
     # Remove classes if needed
     for class_name in remove_list:
         print(f"Removing class '{class_name}' from current dataset...")
         for split in ['train', 'val', 'test']:
-            images_dir = os.path.join(project_root, 'data', 'images', split, class_name)
-            labels_dir = os.path.join(project_root, 'data', 'labels', split, class_name)
-            if os.path.exists(images_dir):
-                shutil.rmtree(images_dir)
-                print(f"Deleted images for class '{class_name}' in '{split}'.")
-            if os.path.exists(labels_dir):
-                shutil.rmtree(labels_dir)
-                print(f"Deleted labels for class '{class_name}' in '{split}'.")
+            images_dir = os.path.join(project_root, 'data', 'images', split)
+            labels_dir = os.path.join(project_root, 'data', 'labels', split)
+            # Delete images and labels for the class
+            for file in os.listdir(images_dir):
+                if file.startswith(class_name + '_'):
+                    os.remove(os.path.join(images_dir, file))
+            for file in os.listdir(labels_dir):
+                if file.startswith(class_name + '_'):
+                    os.remove(os.path.join(labels_dir, file))
         print(f"Class '{class_name}' removed successfully.")
 
     print("Archived dataset has been successfully restored.")
+
+    return background_images_restored  # Return whether background images were restored
