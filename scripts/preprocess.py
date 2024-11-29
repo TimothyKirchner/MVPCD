@@ -106,7 +106,7 @@ def preprocess_images(config, processedimages, counter, mode, class_name):
     # Prompt user to check bounding box sizes
     check_bbox_size = False
     while True:
-        user_input = input("Do you want to check for significantly larger or smaller bounding boxes? (y/n): ").strip().lower()
+        user_input = input("Do you want to check for significantly larger or smaller bounding boxes? This is recommended, especially with small objects (<3cmx3cm or relatively thin objects) (y/n): ").strip().lower()
         if user_input == 'y':
             check_bbox_size = True
             break
