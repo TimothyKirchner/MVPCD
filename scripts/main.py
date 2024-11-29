@@ -25,63 +25,69 @@ from capture_backgrounds import capture_backgrounds
 from replace_background_with_random_insert import replace_images_with_mosaic
 from restore_archive import restore_archive
 
+from pathlib import Path  # Added for better path handling
+
 def load_config(config_path='config/config.yaml'):
     """Load the YAML configuration file."""
     config_full_path = os.path.join(project_root, config_path)
-    print(f"Configuration file '{config_full_path}' not found. Creating a new one.")
-    num_images = input("How many images should be taken per object?: ")
-    try:
-        num_images = int(num_images)
-    except ValueError:
-        print("Invalid input for number of images. Defaulting to 100.")
-        num_images = 100
-    interval = input("What should be the interval between images captured (in seconds)?: ")
-    try:
-        interval = float(interval)
-    except ValueError:
-        print("Invalid input for interval. Defaulting to 1.0 seconds.")
-        interval = 1.0
-    config = {
-        'camera': {
-            'fps': 30,
-            'resolution': [1280, 720]
-        },
-        'capture': {
-            'interval': interval,
-            'num_images': num_images
-        },
-        'chroma_key_settings': {},  # Initialize as empty dict for per-class per-angle settings
-        'debug': {
-            'bboxes': 'data/debug/bboxes',
-            'combined_mask': 'data/debug/combined_mask',
-            'contours': 'data/debug/contours',
-            'depthmask': 'data/debug/depthmask',
-            'rgbmask': 'data/debug/rgbmask',
-            "maskinyolo": "data/debug/maskinyolo",
-            "coloringmask_random_bg": "data/debug/coloringmask_random_bg",
-            "coloringmask": "data/debug/coloringmask",
-            "placement": "data/debug/placement",
-            "backgrounds": "data/backgrounds"
-        },
-        'depth_thresholds': {},
-        'image_counters': {},
-        'output': {
-            'depth_dir': 'data/depth_maps',
-            'image_dir': 'data/images',
-            'label_dir': 'data/labels',
-            'train_image_dir': 'data/images/train',
-            'train_label_dir': 'data/labels/train',
-            'val_image_dir': 'data/images/val',
-            'val_label_dir': 'data/labels/val',
-            'test_image_dir': 'data/images/test',        # Added Test Image Directory
-            'test_label_dir': 'data/labels/test',        # Added Test Label Directory
-            "background_image_dir": "data/backgrounds"
-        },
-        'rois': {},
-        'class_names': []
-    }
-    save_config(config, config_path)
-    print(f"Created default configuration at '{config_full_path}'.")
+    if not os.path.exists(config_full_path):
+        print(f"Configuration file '{config_full_path}' not found. Creating a new one.")
+        num_images = input("How many images should be taken per object?: ")
+        try:
+            num_images = int(num_images)
+        except ValueError:
+            print("Invalid input for number of images. Defaulting to 100.")
+            num_images = 100
+        interval = input("What should be the interval between images captured (in seconds)?: ")
+        try:
+            interval = float(interval)
+        except ValueError:
+            print("Invalid input for interval. Defaulting to 1.0 seconds.")
+            interval = 1.0
+        config = {
+            'camera': {
+                'fps': 30,
+                'resolution': [1280, 720]
+            },
+            'capture': {
+                'interval': interval,
+                'num_images': num_images
+            },
+            'chroma_key_settings': {},  # Initialize as empty dict for per-class per-angle settings
+            'debug': {
+                'bboxes': 'data/debug/bboxes',
+                'combined_mask': 'data/debug/combined_mask',
+                'contours': 'data/debug/contours',
+                'depthmask': 'data/debug/depthmask',
+                'rgbmask': 'data/debug/rgbmask',
+                "maskinyolo": "data/debug/maskinyolo",
+                "coloringmask_random_bg": "data/debug/coloringmask_random_bg",
+                "coloringmask": "data/debug/coloringmask",
+                "placement": "data/debug/placement",
+                "backgrounds": "data/backgrounds"
+            },
+            'depth_thresholds': {},
+            'image_counters': {},
+            'output': {
+                'depth_dir': 'data/depth_maps',
+                'image_dir': 'data/images',
+                'label_dir': 'data/labels',
+                'train_image_dir': 'data/images/train',
+                'train_label_dir': 'data/labels/train',
+                'val_image_dir': 'data/images/val',
+                'val_label_dir': 'data/labels/val',
+                'test_image_dir': 'data/images/test',        # Added Test Image Directory
+                'test_label_dir': 'data/labels/test',        # Added Test Label Directory
+                "background_image_dir": "data/backgrounds"
+            },
+            'rois': {},
+            'class_names': []
+        }
+        save_config(config, config_path)
+        print(f"Created default configuration at '{config_full_path}'.")
+        return config
+    with open(config_full_path, 'r') as f:
+        config = yaml.safe_load(f)
     return config
 
 def save_config(config, config_path='config/config.yaml'):
@@ -194,27 +200,36 @@ def main():
 
     # Ask the user if they want to train a new model or modify an existing one
     while True:
-        choice = input("Do you want to (1) train a new model or (2) add/remove classes from an existing model? Enter 1 or 2: ").strip()
+        choice = input("Do you want to (1) train a new model, (2) add/remove classes from an existing model or load and retrain a archived dataset as it is? Enter 1, 2 or 3: ").strip()
         if choice == '1':
             train_new_model = True
             break
         elif choice == '2':
             train_new_model = False
             break
+        elif choice == "3":
+            train_new_model = True
+            load_archived_dataset = True
+            break
         else:
-            print("Invalid input. Please enter 1 or 2.")
+            print("Invalid input. Please enter 1 or 2 or 3.")
     
     remove_list = []
 
-    if train_new_model == False:
+    if not train_new_model:
         while True:
             remove_object = input("Do you want to remove an Object? (y/n): ").strip().lower()
             if remove_object == "y":
-                remove_list.append = input("Input the name of the Class you want to remove: ")
+                class_to_remove = input("Input the name of the Class you want to remove: ").strip()
+                if class_to_remove:
+                    remove_list.append(class_to_remove)
+                    print(f"Class '{class_to_remove}' added to removal list.")
+                else:
+                    print("Class name cannot be empty.")
             elif remove_object == "n":
                 break
             else:
-                print("ERROR: Input either y or n ")
+                print("ERROR: Input either 'y' or 'n'.")
 
     delete_all_data(config)
 
@@ -258,15 +273,16 @@ def main():
             # Ask if the user wants to capture images from multiple angles for this class
             multi_angle_input = input(f"Do you want to capture images from multiple angles for class '{class_name}'? (y/n): ").strip().lower()
             if multi_angle_input == 'y':
-                num_angles = input(f"How many angles do you want to capture for class '{class_name}'?: ").strip()
-                try:
-                    num_angles = int(num_angles)
-                    if num_angles < 1:
-                        print("Number of angles must be at least 1.")
-                        num_angles = 1
-                except ValueError:
-                    print("Invalid input. Defaulting to 1 angle.")
-                    num_angles = 1
+                while True:
+                    num_angles = input(f"How many angles do you want to capture for class '{class_name}'?: ").strip()
+                    try:
+                        num_angles = int(num_angles)
+                        if num_angles < 1:
+                            print("Number of angles must be at least 1.")
+                            continue
+                        break
+                    except ValueError:
+                        print("Invalid input. Please enter a valid number.")
             else:
                 num_angles = 1
             class_angles[class_name] = num_angles
@@ -278,7 +294,8 @@ def main():
         else:
             print("Please enter 'y' or 'n'.")
 
-    # **Corrected Line: Extend the list instead of appending**
+    # **Modified Part Starts Here**
+    # Save the updated class names
     config["class_names"].extend(classes_to_add)
     save_config(config)  # Save the updated class names
 
@@ -287,37 +304,60 @@ def main():
         num_angles = class_angles.get(class_name, 1)
         total_images = config['capture']['num_images']
 
-        # Calculate images per angle
-        images_per_angle = total_images // num_angles
-        remainder = total_images % num_angles
-        images_per_angle_list = [images_per_angle] * num_angles
-        for i in range(remainder):
-            images_per_angle_list[i] += 1  # Add extra images to the first angles
+        print(f"\nFor class '{class_name}' with {num_angles} angles:")
+        while True:
+            division_choice = input("Do you want to (1) divide images equally per angle or (2) input the number of images per angle manually? Enter 1 or 2: ").strip()
+            if division_choice == '1':
+                # Proceed with equal division as before
+                images_per_angle = total_images // num_angles
+                remainder = total_images % num_angles
+                images_per_angle_list = [images_per_angle] * num_angles
+                for i in range(remainder):
+                    images_per_angle_list[i] += 1  # Add extra images to the first angles
+                break
+            elif division_choice == '2':
+                # Warn the user
+                print(f"WARNING: This will override the previously chosen number of images per object ({total_images}).")
+                images_per_angle_list = []
+                for angle in range(1, num_angles + 1):
+                    while True:
+                        num_images = input(f"Enter number of images for angle {angle}: ").strip()
+                        try:
+                            num_images = int(num_images)
+                            if num_images < 1:
+                                print("Number of images must be at least 1.")
+                                continue
+                            images_per_angle_list.append(num_images)
+                            break
+                        except ValueError:
+                            print("Invalid input. Please enter a valid number.")
+                break
+            else:
+                print("Invalid choice. Please enter 1 or 2.")
 
         for angle_index in range(num_angles):
             num_images_to_capture = images_per_angle_list[angle_index]
             print(f"\n--- Processing angle {angle_index + 1} of {num_angles} for class '{class_name}' ---")
 
             # Start Live Depth Viewer
-            print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index}...")
-            print(f"\nEither adjust Sliders so that the to be scanned object is to be seen in RED, or, if this is not achievable reliably, its is HIGHLY recommended to have your entire rotating disk be colored red so that the object is guaranteed to be included.")
-            print("Press 'r' to restart viewer, 'v' to restart OpenCV window, 'q' to quit and save values.")
+            print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
+            print(f"\nEither adjust Sliders so that the to be scanned object is to be seen in RED, or, if this is not achievable reliably, it is HIGHLY recommended to have your entire rotating disk be colored red so that the object is guaranteed to be included.")
             from live_depth_feed import live_depth_feed  # Import here to ensure updated path
             live_depth_feed(config, class_name, angle_index)
 
             # Start Live RGB Viewer
-            print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index}...")
-            print(f"\nIt is recommended to keep all high values at max, and then try adjusting the lower values up. Different objects react better to different to h, s and v manipulation. Change values so that the shape can be seen clearly. It is better to include some of the backgroudn than to not include all of the objevt. Sometimes a combination of increasing h, s and v can work the best.")
+            print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
+            print(f"\nIt is recommended to keep all high values at max, and then try adjusting the lower values up. Different objects react better to different h, s and v manipulation. Change values so that the shape can be seen clearly. It is better to include some of the background than to not include all of the object. Sometimes a combination of increasing h, s and v can work the best.")
             from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
             live_rgb_chromakey(config, class_name, angle_index)
 
             # Set ROI
-            print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index}...")
+            print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index + 1}...")
             print(f"\nBe aware that the object is being rotated. Make sure that the object is always inside the ROI, even if rotated outside the position seen in the cv2 preview.")
             set_rois(config, class_name, angle_index)
 
             # Capture images
-            print(f"\nStarting image capture for class '{class_name}', angle {angle_index}...")
+            print(f"\nStarting image capture for class '{class_name}', angle {angle_index + 1}...")
             capture_images(config, class_name, num_images_to_capture, angle_index)
 
     for class_name in classes_to_add:
@@ -364,6 +404,7 @@ def main():
         if archiving == "y":
             archive_dataset(config, model_name)
             print("Archived dataset")
+            break
         elif archiving == "n":
             break
         else:
@@ -390,7 +431,7 @@ def main():
     batch_size = int(batch_size) if batch_size.isdigit() else 16  
     
     if not train_new_model:
-        print("integrating archived stuff")
+        print("Integrating archived classes.")
         restore_archive(add_list=classes_to_add, remove_list=remove_list)
 
     train_yolo_model_masks(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size, task=boxormask, weight_decay=weight_decay)

@@ -71,9 +71,9 @@ def run_inference(config):
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     # Corrected model path
     modeldir = os.path.join(project_root, 'runs', 'detect')
-    model_path = os.path.join(project_root, "runs", "detect", find_most_recent_folder(modeldir), "weights", "best.pt")
+    # model_path = os.path.join(project_root, "runs", "detect", find_most_recent_folder(modeldir), "weights", "best.pt")
     # model_path = os.path.join(project_root, "runs", "segment", "mvpcd_yolov8_seg7", "weights", "best.pt")
-    # model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov8_detect11", "weights", "best.pt")
+    model_path = os.path.join(project_root, "runs", "detect", "mvpcd_yolov8_detect2", "weights", "best.pt")
 
     print("model path: ", model_path)
     if not os.path.exists(model_path):
@@ -96,7 +96,7 @@ def run_inference(config):
             # image = cv2.resize(image, (480,480))
 
             # Adjust confidence and IoU thresholds as needed
-            results = model(image, conf=0.2, verbose=False)
+            results = model(image, conf=0.45, verbose=False)
             annotated_frame = results[0].plot()
 
             cv2.imshow("YOLOv8 Inference", annotated_frame)

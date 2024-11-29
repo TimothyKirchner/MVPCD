@@ -6,30 +6,301 @@ camera:
 capture:
   interval: 0.1
   num_images: 100
-chroma_key_settings: {}
+chroma_key_settings:
+  blackthing:
+    0:
+      lower_color:
+      - 0
+      - 0
+      - 75
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 0
+      - 0
+      - 54
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
+      - 0
+      - 0
+      - 54
+      upper_color:
+      - 179
+      - 255
+      - 255
+  fanthing:
+    0:
+      lower_color:
+      - 0
+      - 82
+      - 79
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 0
+      - 50
+      - 81
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
+      - 5
+      - 74
+      - 62
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 0
+      - 64
+      - 76
+      upper_color:
+      - 179
+      - 255
+      - 255
+  orangething:
+    0:
+      lower_color:
+      - 44
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 36
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
+      - 49
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    3:
+      lower_color:
+      - 46
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+  yellowthing:
+    0:
+      lower_color:
+      - 53
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    1:
+      lower_color:
+      - 62
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+    2:
+      lower_color:
+      - 66
+      - 0
+      - 0
+      upper_color:
+      - 179
+      - 255
+      - 255
+class_names:
+- blackthing
+- fanthing
+- yellowthing
+- orangething
 debug:
+  backgrounds: data/backgrounds
   bboxes: data/debug/bboxes
+  coloringmask: data/debug/coloringmask
+  coloringmask_random_bg: data/debug/coloringmask_random_bg
   combined_mask: data/debug/combined_mask
   contours: data/debug/contours
   depthmask: data/debug/depthmask
-  rgbmask: data/debug/rgbmask
   maskinyolo: data/debug/maskinyolo
-  coloringmask_random_bg: data/debug/coloringmask_random_bg
-  coloringmask: data/debug/coloringmask
   placement: data/debug/placement
-  backgrounds: data/backgrounds
-depth_thresholds: {}
-image_counters: {}
+  rgbmask: data/debug/rgbmask
+depth_thresholds:
+  blackthing:
+    0:
+      max: 555
+      min: 500
+    1:
+      max: 571
+      min: 500
+    2:
+      max: 543
+      min: 470
+  fanthing:
+    0:
+      max: 536
+      min: 399
+    1:
+      max: 540
+      min: 428
+    2:
+      max: 556
+      min: 410
+    3:
+      max: 1000
+      min: 436
+  orangething:
+    0:
+      max: 550
+      min: 431
+    1:
+      max: 559
+      min: 458
+    2:
+      max: 537
+      min: 425
+    3:
+      max: 542
+      min: 432
+  yellowthing:
+    0:
+      max: 543
+      min: 471
+    1:
+      max: 546
+      min: 442
+    2:
+      max: 564
+      min: 439
+image_counters:
+  blackthing:
+    0: 41
+    1: 6
+    2: 6
+  fanthing:
+    0: 36
+    1: 16
+    2: 6
+    3: 6
+  orangething:
+    0: 31
+    1: 21
+    2: 6
+  yellowthing:
+    0: 41
+    1: 5
+    2: 7
 output:
+  background_image_dir: data/backgrounds
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
+  test_image_dir: data/images/test
+  test_label_dir: data/labels/test
   train_image_dir: data/images/train
   train_label_dir: data/labels/train
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
-  test_image_dir: data/images/test
-  test_label_dir: data/labels/test
-  background_image_dir: data/backgrounds
-rois: {}
-class_names: []
+rois:
+  blackthing:
+    0:
+    - height: 259
+      width: 277
+      x: 504
+      y: 65
+    1:
+    - height: 255
+      width: 261
+      x: 23
+      y: 91
+    2:
+    - height: 265
+      width: 257
+      x: 930
+      y: 32
+  fanthing:
+    0:
+    - height: 213
+      width: 206
+      x: 582
+      y: 122
+    1:
+    - height: 184
+      width: 212
+      x: 598
+      y: 120
+    2:
+    - height: 244
+      width: 252
+      x: 1021
+      y: 63
+    3:
+    - height: 217
+      width: 230
+      x: 1025
+      y: 65
+  orangething:
+    0:
+    - height: 249
+      width: 258
+      x: 567
+      y: 70
+    1:
+    - height: 247
+      width: 256
+      x: 569
+      y: 73
+    2:
+    - height: 283
+      width: 255
+      x: 1025
+      y: 6
+    3:
+    - height: 260
+      width: 268
+      x: 983
+      y: 26
+  yellowthing:
+    0:
+    - height: 174
+      width: 186
+      x: 580
+      y: 63
+    1:
+    - height: 321
+      width: 326
+      x: 917
+      y: 11
+    2:
+    - height: 169
+      width: 170
+      x: 1016
+      y: 71
