@@ -140,8 +140,8 @@ chroma_key_settings:
 class_names:
 - blackthing
 - fanthing
-- yellowthing
 - orangething
+- whitething
 debug:
   backgrounds: data/backgrounds
   bboxes: data/debug/bboxes
