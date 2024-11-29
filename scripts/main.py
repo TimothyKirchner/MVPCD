@@ -326,10 +326,25 @@ def main():
         # Proceed to capture images and process for the new classes
         if classes_to_add:
             while True:
-                choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? 1 generally leads to better model performance in your specific workspace. Enter 1 or 2: ").strip()
+                choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? Enter 1 or 2: ").strip()
                 if choice_bg == '1':
-                    capture_backgrounds(config, max_retries=5)
-                    take_background = True
+                    # Ask if the user wants to take new background images or use existing ones
+                    while True:
+                        bg_choice = input("Do you want to (1) take new background pictures or (2) use the background images from the existing dataset? Enter 1 or 2: ").strip()
+                        if bg_choice == '1':
+                            # Delete existing background images
+                            background_image_dir = os.path.join(project_root, config['output']['background_image_dir'])
+                            delete_files_in_directory(background_image_dir)
+                            # Capture new background images
+                            capture_backgrounds(config, max_retries=5)
+                            take_background = True
+                            break
+                        elif bg_choice == '2':
+                            # Use existing background images
+                            take_background = True
+                            break
+                        else:
+                            print("Invalid input. Please enter 1 or 2.")
                     break
                 elif choice_bg == '2':
                     take_background = False
@@ -414,8 +429,8 @@ def main():
                     replace_background_with_preset_color_using_contours(config, class_name=class_name)
                     print("Replaced Background as solid color.")
 
-        # Update mvpcd.yaml with new classes
-        update_mvpcd_yaml(config["class_names"])
+            # Update mvpcd.yaml with new classes
+            update_mvpcd_yaml(config["class_names"])
 
     else:
         # For choices 1 and 3 where train_new_model is True
@@ -423,13 +438,139 @@ def main():
             # Delete all data for a new model
             delete_all_data(config)
 
-            # Proceed with data capturing as in the original script
-            # [Include the code for capturing backgrounds, images, preprocessing, etc.]
-            # For brevity, I'm not repeating the code here
-            pass
+            while True:
+                choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? 1 generally leads to better model performance in your specific workspace. Enter 1 or 2: ").strip()
+                if choice_bg == '1':
+                    capture_backgrounds(config, max_retries=5)
+                    take_background = True
+                    break
+                elif choice_bg == '2':
+                    take_background = False
+                    break
+                else:
+                    print("Invalid input. Please enter 1 or 2.")
+
+            task = mode = boxormask = "detection"
+
+            classes_to_add = []
+            class_angles = {}  # Dictionary to store number of angles per class
+            while True:
+                add_object = input("Do you want to add an object to be trained? (y/n): ").strip().lower()
+                if add_object == 'y':
+                    # Prompt for class name
+                    existing_classes = config.get('class_names', [])
+                    class_name = prompt_for_class_name(existing_classes)
+                    classes_to_add.append(class_name)
+                    print(f"Class '{class_name}' added for training.")
+
+                    # Ask if the user wants to capture images from multiple angles for this class
+                    multi_angle_input = input(f"Do you want to capture images from multiple angles for class '{class_name}'? (y/n): ").strip().lower()
+                    if multi_angle_input == 'y':
+                        while True:
+                            num_angles = input(f"How many angles do you want to capture for class '{class_name}'?: ").strip()
+                            try:
+                                num_angles = int(num_angles)
+                                if num_angles < 1:
+                                    print("Number of angles must be at least 1.")
+                                    continue
+                                break
+                            except ValueError:
+                                print("Invalid input. Please enter a valid number.")
+                    else:
+                        num_angles = 1
+                    class_angles[class_name] = num_angles
+                elif add_object == 'n':
+                    if not classes_to_add:
+                        print("No classes added. Exiting.")
+                        return
+                    break
+                else:
+                    print("Please enter 'y' or 'n'.")
+
+            # Save the updated class names
+            config["class_names"].extend(classes_to_add)
+            save_config(config)  # Save the updated class names
+
+            # Start processing each class
+            for class_name in classes_to_add:
+                num_angles = class_angles.get(class_name, 1)
+                total_images = config['capture']['num_images']
+
+                print(f"\nFor class '{class_name}' with {num_angles} angles:")
+                while True:
+                    division_choice = input("Do you want to (1) divide images equally per angle or (2) input the number of images per angle manually? Enter 1 or 2: ").strip()
+                    if division_choice == '1':
+                        # Proceed with equal division as before
+                        images_per_angle = total_images // num_angles
+                        remainder = total_images % num_angles
+                        images_per_angle_list = [images_per_angle] * num_angles
+                        for i in range(remainder):
+                            images_per_angle_list[i] += 1  # Add extra images to the first angles
+                        break
+                    elif division_choice == '2':
+                        # Warn the user
+                        print(f"WARNING: This will override the previously chosen number of images per object ({total_images}).")
+                        images_per_angle_list = []
+                        for angle in range(1, num_angles + 1):
+                            while True:
+                                num_images = input(f"Enter number of images for angle {angle}: ").strip()
+                                try:
+                                    num_images = int(num_images)
+                                    if num_images < 1:
+                                        print("Number of images must be at least 1.")
+                                        continue
+                                    images_per_angle_list.append(num_images)
+                                    break
+                                except ValueError:
+                                    print("Invalid input. Please enter a valid number.")
+                        break
+                    else:
+                        print("Invalid choice. Please enter 1 or 2.")
+
+                for angle_index in range(num_angles):
+                    num_images_to_capture = images_per_angle_list[angle_index]
+                    print(f"\n--- Processing angle {angle_index + 1} of {num_angles} for class '{class_name}' ---")
+
+                    # Start Live Depth Viewer
+                    print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
+                    from live_depth_feed import live_depth_feed  # Import here to ensure updated path
+                    live_depth_feed(config, class_name, angle_index)
+
+                    # Start Live RGB Viewer
+                    print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
+                    from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
+                    live_rgb_chromakey(config, class_name, angle_index)
+
+                    # Set ROI
+                    print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index + 1}...")
+                    set_rois(config, class_name, angle_index)
+
+                    # Capture images
+                    print(f"\nStarting image capture for class '{class_name}', angle {angle_index + 1}...")
+                    capture_images(config, class_name, num_images_to_capture, angle_index)
+
+            # Split dataset and preprocess images
+            for class_name in classes_to_add:
+                # Split dataset
+                print("\nSplitting dataset into training, validation, and test sets...")
+                split_dataset(config, class_name=class_name, test_size=0.1)  # Updated to include test split
+
+                # Preprocess images
+                print("\nPreprocessing images...")
+                preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
+
+            for class_name in classes_to_add:
+                if take_background:
+                    replace_images_with_mosaic(config, class_name=class_name)
+                    print("Replacing Background with Mosaic of Workspace.")
+                else:
+                    replace_background_with_preset_color_using_contours(config, class_name=class_name)
+                    print("Replaced Background as solid color.")
+
+            # Update mvpcd.yaml with new classes
+            update_mvpcd_yaml(config["class_names"])
         else:
             # Choice 3: Load and retrain an archived dataset as it is
-            # The dataset is already loaded, proceed to training
             print("\nProceeding with loaded archived dataset.")
 
     # Clean up directories

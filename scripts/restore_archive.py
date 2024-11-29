@@ -1,9 +1,10 @@
 # scripts/restore_archive.py
 import os
 import shutil
-import sys
+
 # Adjust sys.path to include the project root directory
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+import sys
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -27,20 +28,31 @@ def restore_archive(add_list, remove_list, archive_path):
         'images_val': 'data/images/val',
         'labels_val': 'data/labels/val',
         'images_test': 'data/images/test',
-        'labels_test': 'data/labels/test'
+        'labels_test': 'data/labels/test',
+        'backgrounds': 'data/backgrounds'  # Added background images directory
     }
 
     # Ensure target directories exist
     for dir_key, dir_path in target_dirs.items():
-        full_path = os.path.join(os.path.dirname(archive_path), dir_path)
+        full_path = os.path.join(project_root, dir_path)
         os.makedirs(full_path, exist_ok=True)
+
+    # Restore background images
+    src_backgrounds = os.path.join(archive_path, 'data', 'backgrounds')
+    dest_backgrounds = os.path.join(project_root, 'data', 'backgrounds')
+
+    if os.path.exists(src_backgrounds):
+        shutil.copytree(src_backgrounds, dest_backgrounds, dirs_exist_ok=True)
+        print("Background images restored.")
+    else:
+        print(f"Background images not found in archive at '{src_backgrounds}'.")
 
     # Function to copy files for a specific class
     def copy_files(class_name, split):
-        src_images = os.path.join(archive_path, 'images', split, class_name)
-        src_labels = os.path.join(archive_path, 'labels', split, class_name)
-        dest_images = os.path.join(project_root, target_dirs[f'images_{split}'], class_name)
-        dest_labels = os.path.join(project_root, target_dirs[f'labels_{split}'], class_name)
+        src_images = os.path.join(archive_path, 'data', 'images', split, class_name)
+        src_labels = os.path.join(archive_path, 'data', 'labels', split, class_name)
+        dest_images = os.path.join(project_root, 'data', 'images', split, class_name)
+        dest_labels = os.path.join(project_root, 'data', 'labels', split, class_name)
 
         # Create destination class directories
         os.makedirs(dest_images, exist_ok=True)
@@ -73,8 +85,8 @@ def restore_archive(add_list, remove_list, archive_path):
     for class_name in remove_list:
         print(f"Removing class '{class_name}' from current dataset...")
         for split in ['train', 'val', 'test']:
-            images_dir = os.path.join(project_root, target_dirs[f'images_{split}'], class_name)
-            labels_dir = os.path.join(project_root, target_dirs[f'labels_{split}'], class_name)
+            images_dir = os.path.join(project_root, 'data', 'images', split, class_name)
+            labels_dir = os.path.join(project_root, 'data', 'labels', split, class_name)
             if os.path.exists(images_dir):
                 shutil.rmtree(images_dir)
                 print(f"Deleted images for class '{class_name}' in '{split}'.")

@@ -45,7 +45,6 @@ def archive_dataset(config, model_name):
     logging.info(f"Starting archiving process for model: {model_name}")
     print(f"Starting archiving process for model: {model_name}")
 
-    # === Begin of Changes ===
     # Ask the user if they want to specify a custom folder name
     user_choice = input("Do you want to specify a custom archive folder name? (y/n): ").strip().lower()
     if user_choice == 'y':
@@ -67,7 +66,6 @@ def archive_dataset(config, model_name):
         # Use default naming method
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         archive_folder_name = f"{model_name}_{timestamp}"
-    # === End of Changes ===
 
     # Define the archive directory path
     archive_dir = os.path.join(project_root, 'archive', archive_folder_name)
@@ -93,7 +91,8 @@ def archive_dataset(config, model_name):
         config['debug']['combined_mask'],
         config['debug']['contours'],
         config['debug']['depthmask'],
-        config['debug']['rgbmask']
+        config['debug']['rgbmask'],
+        config['output']['background_image_dir']  # Added background images directory
     ]
 
     # Copy each source directory to the archive directory
