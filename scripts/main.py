@@ -409,13 +409,13 @@ def main():
 
                     # Start Live Depth Viewer
                     print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
-                    print(f"\n the Window will restart in 2 minutes and changes may not be saved. This is so that if the window crashes you can still adjust values and dont lose the pipeline process until now.")
+                    print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
                     from live_depth_feed import live_depth_feed  # Import here to ensure updated path
                     live_depth_feed(config, class_name, angle_index)
 
                     # Start Live RGB Viewer
                     print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
-                    print(f"\n the Window will restart in 2 minutes and changes may not be saved. This is so that if the window crashes you can still adjust values and dont lose the pipeline process until now.")
+                    print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
                     from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
                     live_rgb_chromakey(config, class_name, angle_index)
 
@@ -450,6 +450,7 @@ def main():
     else:
         # For choices 1 and 3 where train_new_model is True
         if not load_archived_dataset:
+            # ... code for Option 1 (train new model without loading archived dataset)
             # Delete all data for a new model
             delete_all_data(config)
 
@@ -586,7 +587,32 @@ def main():
             update_mvpcd_yaml(config["class_names"])
         else:
             # Choice 3: Load and retrain an archived dataset as it is
-            print("\nProceeding with loaded archived dataset.")
+
+            # Reset config to default state
+            delete_all_data(config)  # Clear existing data and reset config
+
+            # Restore the archived dataset
+            print("\nRestoring the archived dataset...")
+            background_images_restored = restore_archive(add_list=[], remove_list=[], archive_path=archive_path)
+            print("Archive restored successfully.")
+
+            # Get class names from restored dataset
+            data_images_dir = os.path.join(project_root, 'data', 'images')
+            class_names = set()
+            for split in ['train', 'val', 'test']:
+                split_dir = os.path.join(data_images_dir, split)
+                if os.path.exists(split_dir):
+                    for filename in os.listdir(split_dir):
+                        if '_' in filename:
+                            class_name = filename.split('_')[0]
+                            class_names.add(class_name)
+
+            config['class_names'] = sorted(list(class_names))
+            save_config(config)
+            print(f"Updated config with class names: {config['class_names']}")
+
+            # Update mvpcd.yaml with restored classes
+            update_mvpcd_yaml(config["class_names"])
 
     # Clean up directories
     image_dir = os.path.join(project_root, config['output']['image_dir'])

@@ -6,46 +6,12 @@ camera:
 capture:
   interval: 0.1
   num_images: 100
-chroma_key_settings:
-  whitething:
-    0:
-      lower_color:
-      - 0
-      - 76
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    1:
-      lower_color:
-      - 0
-      - 57
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    2:
-      lower_color:
-      - 0
-      - 65
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
-    3:
-      lower_color:
-      - 0
-      - 67
-      - 0
-      upper_color:
-      - 179
-      - 255
-      - 255
+chroma_key_settings: {}
 class_names:
-- whitething
+- blackthing
+- fanthing
+- orangething
+- yellowthing
 debug:
   backgrounds: data/backgrounds
   bboxes: data/debug/bboxes
@@ -57,25 +23,8 @@ debug:
   maskinyolo: data/debug/maskinyolo
   placement: data/debug/placement
   rgbmask: data/debug/rgbmask
-depth_thresholds:
-  whitething:
-    0:
-      max: 534
-      min: 441
-    1:
-      max: 1000
-      min: 403
-    2:
-      max: 489
-      min: 416
-    3:
-      max: 532
-      min: 0
-image_counters:
-  whitething:
-    0: 41
-    1: 6
-    2: 6
+depth_thresholds: {}
+image_counters: {}
 output:
   background_image_dir: data/backgrounds
   depth_dir: data/depth_maps
@@ -87,25 +36,4 @@ output:
   train_label_dir: data/labels/train
   val_image_dir: data/images/val
   val_label_dir: data/labels/val
-rois:
-  whitething:
-    0:
-    - height: 268
-      width: 274
-      x: 353
-      y: 28
-    1:
-    - height: 274
-      width: 278
-      x: 839
-      y: 12
-    2:
-    - height: 284
-      width: 338
-      x: 24
-      y: 84
-    3:
-    - height: 287
-      width: 296
-      x: 529
-      y: 74
+rois: {}
