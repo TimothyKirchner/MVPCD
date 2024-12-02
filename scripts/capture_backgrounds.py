@@ -78,6 +78,7 @@ def capture_workspace_images(config, max_retries=5):
     workspace_images = []
 
     print('Press "c" to capture an image, "q" to quit.')
+    imagestaken = False
 
     while True:
         err = zed.grab(runtime_parameters)
@@ -89,13 +90,22 @@ def capture_workspace_images(config, max_retries=5):
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
             cv2.imshow('Workspace - Press "c" to capture, "q" to quit', frame_bgr)
             key = cv2.waitKey(1) & 0xFF
-
             if key == ord('c'):
                 # Save the captured frame
+                imagestaken = True
+                print("imagestaken = ", imagestaken)
                 workspace_images.append(frame_bgr.copy())
                 print(f"Captured workspace image {len(workspace_images)}")
             elif key == ord('q'):
-                break
+                if imagestaken == True:
+                    print("imagestaken = ", imagestaken)
+                    print("Images of the Background were taken and are now goin to be sliced for the background mosaic.")
+                    break
+                elif imagestaken == False:
+                    print("imagestaken = ", imagestaken)
+                    print("There havent been any images taken yet. Please take some Images for the background first. You can take them by pressing \"c\"")
+                else:
+                    print("well this shouldnt have happened at all!")
         else:
             print("Failed to grab image from camera.")
 
@@ -161,7 +171,6 @@ def select_rois_on_images(images):
         while True:
             cv2.imshow(roi_window_name, image)
             key = cv2.waitKey(1) & 0xFF
-
             if key == ord('s'):
                 if rois:
                     images_with_rois.append((clone.copy(), rois.copy()))

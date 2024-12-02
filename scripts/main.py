@@ -158,6 +158,7 @@ def delete_all_data(config):
     config['depth_thresholds'] = {}
     config['rois'] = {}
     config['chroma_key_settings'] = {}
+    config['class_names'] = []
     save_config(config)
     print("Reset configurations in 'config.yaml'.")
 
@@ -263,7 +264,11 @@ def main():
 
     if not train_new_model:
         # Option 2: Add/Remove classes from an existing model
-        # Remove classes if needed
+
+        # Reset config to default state without class names or anything
+        delete_all_data(config)  # Clear existing data and reset config
+
+        # Proceed to remove classes if needed
         while True:
             remove_object = input("Do you want to remove an Object? (y/n): ").strip().lower()
             if remove_object == "y":
@@ -321,11 +326,12 @@ def main():
         # Add new classes
         config['class_names'].extend(classes_to_add)
         save_config(config)
-
+        backgroundimagesexistedindataset = True
         # Check if background images exist
         background_image_dir = os.path.join(project_root, config['output']['background_image_dir'])
         if not background_images_restored or not os.listdir(background_image_dir):
             print("No background images found in the archive.")
+            backgroundimagesexistedindataset = False
             # Ask the user to take new background images
             while True:
                 bg_choice = input("No background images were found in the archive. Do you want to (1) take new background pictures or (2) proceed without background images? Enter 1 or 2: ").strip()
@@ -346,9 +352,12 @@ def main():
         # Proceed to capture images and process for the new classes
         if classes_to_add:
             while True:
+                if not background_images_restored or not os.listdir(background_image_dir):
+                    break
                 choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? Enter 1 or 2: ").strip()
                 if choice_bg == '1':
                     # We have already handled background images above
+                    capture_backgrounds(config, max_retries=5)
                     break
                 elif choice_bg == '2':
                     take_background = False
@@ -400,11 +409,13 @@ def main():
 
                     # Start Live Depth Viewer
                     print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
+                    print(f"\n the Window will restart in 2 minutes and changes may not be saved. This is so that if the window crashes you can still adjust values and dont lose the pipeline process until now.")
                     from live_depth_feed import live_depth_feed  # Import here to ensure updated path
                     live_depth_feed(config, class_name, angle_index)
 
                     # Start Live RGB Viewer
                     print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
+                    print(f"\n the Window will restart in 2 minutes and changes may not be saved. This is so that if the window crashes you can still adjust values and dont lose the pipeline process until now.")
                     from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
                     live_rgb_chromakey(config, class_name, angle_index)
 
@@ -527,7 +538,7 @@ def main():
                                     break
                                 except ValueError:
                                     print("Invalid input. Please enter a valid number.")
-                        break
+                            break
                     else:
                         print("Invalid choice. Please enter 1 or 2.")
 
@@ -634,6 +645,7 @@ def main():
     config['depth_thresholds'] = {}
     config['rois'] = {}
     config['chroma_key_settings'] = {}
+    config['class_names'] = []
     save_config(config)
     print("\nConfigurations have been cleared after training.")
 

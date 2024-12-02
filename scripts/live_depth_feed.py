@@ -1,6 +1,7 @@
 # scripts/live_depth_feed.py
 import sys
 import os
+import time  # Added for timer functionality
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -48,6 +49,8 @@ def live_depth_feed(config, class_name, angle_index):
     print(f"\n--- Adjusting Depth Thresholds for Class '{class_name}', angle {angle_index} ---")
     print(f"Initial Min Depth: {min_depth} mm, Max Depth: {max_depth} mm\n")
 
+    last_restart_time = time.time()  # Initialize timer
+
     try:
         while True:
             _, depth_map = capture_frame(camera)
@@ -92,6 +95,7 @@ def live_depth_feed(config, class_name, angle_index):
                 except Exception as e:
                     print(f"Error during reinitialization: {e}")
                     break
+                last_restart_time = time.time()  # Reset timer
             elif key == ord('v'):
                 # Close and reopen the OpenCV window
                 print("Closing and reopening the OpenCV window...")
@@ -99,6 +103,18 @@ def live_depth_feed(config, class_name, angle_index):
                 cv2.namedWindow("Live Depth Feed")
                 cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
                 cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
+                last_restart_time = time.time()  # Reset timer
+
+            # Automatically restart the window every 2 minutes
+            current_time = time.time()
+            if current_time - last_restart_time >= 120:
+                print("Automatically restarting the OpenCV window after 2 minutes...")
+                cv2.destroyWindow("Live Depth Feed")
+                cv2.namedWindow("Live Depth Feed")
+                cv2.createTrackbar("Min Depth", "Live Depth Feed", min_depth, 1000, lambda x: None)
+                cv2.createTrackbar("Max Depth", "Live Depth Feed", max_depth, 1000, lambda x: None)
+                last_restart_time = current_time  # Reset timer
+
     finally:
         camera.close()
         cv2.destroyAllWindows()

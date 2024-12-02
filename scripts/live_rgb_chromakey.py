@@ -1,6 +1,7 @@
 # scripts/live_rgb_chromakey.py
 import sys
 import os
+import time  # Added for timer functionality
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -50,6 +51,8 @@ def live_rgb_chromakey(config, class_name, angle_index):
     cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
     print(f"Adjusting chroma key for class: {class_name}, angle {angle_index}")
 
+    last_restart_time = time.time()  # Initialize timer
+
     try:
         while True:
             image, _ = capture_frame(camera)
@@ -86,6 +89,54 @@ def live_rgb_chromakey(config, class_name, angle_index):
                 save_config(config)
                 print("Chroma key settings saved.")
                 break
+            elif key == ord('r'):
+                # Reinitialize the camera and viewer
+                print("Reinitializing the camera and viewer...")
+                try:
+                    camera.release()
+                    camera = initialize_camera(config)
+                    if camera is None:
+                        print("Camera re-initialization failed.")
+                        break
+                    # Reinitialize the OpenCV window and trackbars
+                    cv2.destroyAllWindows()
+                    cv2.namedWindow("Live RGB Chroma-Keying")
+                    cv2.createTrackbar('Lower H', 'Live RGB Chroma-Keying', lower_h, 179, lambda x: None)
+                    cv2.createTrackbar('Lower S', 'Live RGB Chroma-Keying', lower_s, 255, lambda x: None)
+                    cv2.createTrackbar('Lower V', 'Live RGB Chroma-Keying', lower_v, 255, lambda x: None)
+                    cv2.createTrackbar('Upper H', 'Live RGB Chroma-Keying', upper_h, 179, lambda x: None)
+                    cv2.createTrackbar('Upper S', 'Live RGB Chroma-Keying', upper_s, 255, lambda x: None)
+                    cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
+                except Exception as e:
+                    print(f"Error during reinitialization: {e}")
+                    break
+                last_restart_time = time.time()  # Reset timer
+            elif key == ord('v'):
+                # Close and reopen the OpenCV window
+                print("Closing and reopening the OpenCV window...")
+                cv2.destroyWindow("Live RGB Chroma-Keying")
+                cv2.namedWindow("Live RGB Chroma-Keying")
+                cv2.createTrackbar('Lower H', 'Live RGB Chroma-Keying', lower_h, 179, lambda x: None)
+                cv2.createTrackbar('Lower S', 'Live RGB Chroma-Keying', lower_s, 255, lambda x: None)
+                cv2.createTrackbar('Lower V', 'Live RGB Chroma-Keying', lower_v, 255, lambda x: None)
+                cv2.createTrackbar('Upper H', 'Live RGB Chroma-Keying', upper_h, 179, lambda x: None)
+                cv2.createTrackbar('Upper S', 'Live RGB Chroma-Keying', upper_s, 255, lambda x: None)
+                cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
+                last_restart_time = time.time()  # Reset timer
+
+            # Automatically restart the window every 2 minutes
+            current_time = time.time()
+            if current_time - last_restart_time >= 120:
+                print("Automatically restarting the OpenCV window after 2 minutes...")
+                cv2.destroyWindow("Live RGB Chroma-Keying")
+                cv2.namedWindow("Live RGB Chroma-Keying")
+                cv2.createTrackbar('Lower H', 'Live RGB Chroma-Keying', lower_h, 179, lambda x: None)
+                cv2.createTrackbar('Lower S', 'Live RGB Chroma-Keying', lower_s, 255, lambda x: None)
+                cv2.createTrackbar('Lower V', 'Live RGB Chroma-Keying', lower_v, 255, lambda x: None)
+                cv2.createTrackbar('Upper H', 'Live RGB Chroma-Keying', upper_h, 179, lambda x: None)
+                cv2.createTrackbar('Upper S', 'Live RGB Chroma-Keying', upper_s, 255, lambda x: None)
+                cv2.createTrackbar('Upper V', 'Live RGB Chroma-Keying', upper_v, 255, lambda x: None)
+                last_restart_time = current_time  # Reset timer
 
     finally:
         camera.close()
