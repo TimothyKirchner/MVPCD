@@ -187,6 +187,41 @@ def update_mvpcd_yaml(class_names):
     except Exception as e:
         print(f"Failed to update 'mvpcd.yaml': {e}")
 
+def import_new_classes_from_archive(config, classes_to_add, archive_path):
+    """
+    Import images and labels for new classes from an archive folder.
+
+    Parameters:
+    - config: The configuration dictionary.
+    - classes_to_add: List of class names to add.
+    - archive_path: Path to the archive folder containing images and labels.
+    """
+    dest_data_dir = os.path.join(project_root, 'data')
+    splits = ['train', 'val', 'test']
+
+    for split in splits:
+        src_images_dir = os.path.join(archive_path, 'images', split)
+        src_labels_dir = os.path.join(archive_path, 'labels', split)
+        dest_images_dir = os.path.join(dest_data_dir, 'images', split)
+        dest_labels_dir = os.path.join(dest_data_dir, 'labels', split)
+        os.makedirs(dest_images_dir, exist_ok=True)
+        os.makedirs(dest_labels_dir, exist_ok=True)
+
+        if not os.path.exists(src_images_dir) or not os.path.exists(src_labels_dir):
+            print(f"Source directories for split '{split}' do not exist in the archive.")
+            continue
+
+        for file_name in os.listdir(src_images_dir):
+            class_name = file_name.split('_')[0]
+            if class_name in classes_to_add:
+                shutil.copy2(os.path.join(src_images_dir, file_name), dest_images_dir)
+        for file_name in os.listdir(src_labels_dir):
+            class_name = file_name.split('_')[0]
+            if class_name in classes_to_add:
+                shutil.copy2(os.path.join(src_labels_dir, file_name), dest_labels_dir)
+
+    print("Imported new classes from archive successfully.")
+
 def main():
     """Main function to run the MVPCD pipeline."""
     parser = argparse.ArgumentParser(description='MVPCD Pipeline')
@@ -352,100 +387,108 @@ def main():
         # Proceed to capture images and process for the new classes
         if classes_to_add:
             while True:
-                if not background_images_restored or not os.listdir(background_image_dir):
+                data_source_choice = input("Do you want to (1) capture new images with the camera or (2) import images from an archive? Enter 1 or 2: ").strip()
+                if data_source_choice == '1':
+                    use_camera = True
                     break
-                choice_bg = input("Do you want to (1) manually take pictures of your workspace or (2) have the model train on pictures with virtually generated backgrounds? Enter 1 or 2: ").strip()
-                if choice_bg == '1':
-                    # We have already handled background images above
-                    capture_backgrounds(config, max_retries=5)
-                    break
-                elif choice_bg == '2':
-                    take_background = False
+                elif data_source_choice == '2':
+                    use_camera = False
                     break
                 else:
                     print("Invalid input. Please enter 1 or 2.")
 
-            task = mode = boxormask = "detection"
+            if not use_camera:
+                # Prompt for the path to the archive folder
+                archive_folder_path = input("Enter the path to the archive folder containing images and labels for the new classes: ").strip()
+                if not os.path.exists(archive_folder_path):
+                    print(f"Archive folder '{archive_folder_path}' does not exist.")
+                    return
+                # Import new classes from the archive
+                import_new_classes_from_archive(config, classes_to_add, archive_folder_path)
+                # Update mvpcd.yaml with new classes
+                update_mvpcd_yaml(config["class_names"])
+                # Proceed to training
+            else:
+                # Proceed to capture images with the camera as before
+                # Start processing each new class
+                for class_name in classes_to_add:
+                    num_angles = class_angles.get(class_name, 1)
+                    total_images = config['capture']['num_images']
 
-            # Start processing each new class
-            for class_name in classes_to_add:
-                num_angles = class_angles.get(class_name, 1)
-                total_images = config['capture']['num_images']
+                    print(f"\nFor class '{class_name}' with {num_angles} angles:")
+                    while True:
+                        division_choice = input("Do you want to (1) divide images equally per angle or (2) input the number of images per angle manually? Enter 1 or 2: ").strip()
+                        if division_choice == '1':
+                            # Proceed with equal division as before
+                            images_per_angle = total_images // num_angles
+                            remainder = total_images % num_angles
+                            images_per_angle_list = [images_per_angle] * num_angles
+                            for i in range(remainder):
+                                images_per_angle_list[i] += 1  # Add extra images to the first angles
+                            break
+                        elif division_choice == '2':
+                            # Warn the user
+                            print(f"WARNING: This will override the previously chosen number of images per object ({total_images}).")
+                            images_per_angle_list = []
+                            for angle in range(1, num_angles + 1):
+                                while True:
+                                    num_images = input(f"Enter number of images for angle {angle}: ").strip()
+                                    try:
+                                        num_images = int(num_images)
+                                        if num_images < 1:
+                                            print("Number of images must be at least 1.")
+                                            continue
+                                        images_per_angle_list.append(num_images)
+                                        break
+                                    except ValueError:
+                                        print("Invalid input. Please enter a valid number.")
+                            break
+                        else:
+                            print("Invalid choice. Please enter 1 or 2.")
 
-                print(f"\nFor class '{class_name}' with {num_angles} angles:")
-                while True:
-                    division_choice = input("Do you want to (1) divide images equally per angle or (2) input the number of images per angle manually? Enter 1 or 2: ").strip()
-                    if division_choice == '1':
-                        # Proceed with equal division as before
-                        images_per_angle = total_images // num_angles
-                        remainder = total_images % num_angles
-                        images_per_angle_list = [images_per_angle] * num_angles
-                        for i in range(remainder):
-                            images_per_angle_list[i] += 1  # Add extra images to the first angles
-                        break
-                    elif division_choice == '2':
-                        # Warn the user
-                        print(f"WARNING: This will override the previously chosen number of images per object ({total_images}).")
-                        images_per_angle_list = []
-                        for angle in range(1, num_angles + 1):
-                            while True:
-                                num_images = input(f"Enter number of images for angle {angle}: ").strip()
-                                try:
-                                    num_images = int(num_images)
-                                    if num_images < 1:
-                                        print("Number of images must be at least 1.")
-                                        continue
-                                    images_per_angle_list.append(num_images)
-                                    break
-                                except ValueError:
-                                    print("Invalid input. Please enter a valid number.")
-                        break
+                    for angle_index in range(num_angles):
+                        num_images_to_capture = images_per_angle_list[angle_index]
+                        print(f"\n--- Processing angle {angle_index + 1} of {num_angles} for class '{class_name}' ---")
+
+                        # Start Live Depth Viewer
+                        print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
+                        print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
+                        from live_depth_feed import live_depth_feed  # Import here to ensure updated path
+                        live_depth_feed(config, class_name, angle_index)
+
+                        # Start Live RGB Viewer
+                        print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
+                        print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
+                        from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
+                        live_rgb_chromakey(config, class_name, angle_index)
+
+                        # Set ROI
+                        print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index + 1}...")
+                        set_rois(config, class_name, angle_index)
+
+                        # Capture images
+                        print(f"\nStarting image capture for class '{class_name}', angle {angle_index + 1}...")
+                        capture_images(config, class_name, num_images_to_capture, angle_index)
+
+                # Preprocess images and split dataset for new classes
+                for class_name in classes_to_add:
+                    # Split dataset
+                    print("\nSplitting dataset into training, validation, and test sets...")
+                    split_dataset(config, class_name=class_name, test_size=0.1)
+
+                    # Preprocess images
+                    print("\nPreprocessing images...")
+                    preprocess_images(config, processedimages=processedimages, counter=counter, mode="detection", class_name=class_name)
+
+                    if take_background:
+                        replace_images_with_mosaic(config, class_name=class_name)
+                        print("Replacing Background with Mosaic of Workspace.")
                     else:
-                        print("Invalid choice. Please enter 1 or 2.")
+                        replace_background_with_preset_color_using_contours(config, class_name=class_name)
+                        print("Replaced Background as solid color.")
 
-                for angle_index in range(num_angles):
-                    num_images_to_capture = images_per_angle_list[angle_index]
-                    print(f"\n--- Processing angle {angle_index + 1} of {num_angles} for class '{class_name}' ---")
-
-                    # Start Live Depth Viewer
-                    print(f"\nStarting Live Depth Viewer to adjust depth cutoff values for class '{class_name}', angle {angle_index + 1}...")
-                    print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
-                    from live_depth_feed import live_depth_feed  # Import here to ensure updated path
-                    live_depth_feed(config, class_name, angle_index)
-
-                    # Start Live RGB Viewer
-                    print(f"\nStarting Live RGB Viewer to adjust chroma keying colors for class '{class_name}', angle {angle_index + 1}...")
-                    print(f"\nThe window will restart in 2 minutes to prevent crashes. Adjust your values promptly.")
-                    from live_rgb_chromakey import live_rgb_chromakey  # Import here to ensure updated path
-                    live_rgb_chromakey(config, class_name, angle_index)
-
-                    # Set ROI
-                    print(f"\nSetting Region of Interest (ROI) for class '{class_name}', angle {angle_index + 1}...")
-                    set_rois(config, class_name, angle_index)
-
-                    # Capture images
-                    print(f"\nStarting image capture for class '{class_name}', angle {angle_index + 1}...")
-                    capture_images(config, class_name, num_images_to_capture, angle_index)
-
-            # Preprocess images and split dataset for new classes
-            for class_name in classes_to_add:
-                # Split dataset
-                print("\nSplitting dataset into training, validation, and test sets...")
-                split_dataset(config, class_name=class_name, test_size=0.1)
-
-                # Preprocess images
-                print("\nPreprocessing images...")
-                preprocess_images(config, processedimages=processedimages, counter=counter, mode=mode, class_name=class_name)
-
-                if take_background:
-                    replace_images_with_mosaic(config, class_name=class_name)
-                    print("Replacing Background with Mosaic of Workspace.")
-                else:
-                    replace_background_with_preset_color_using_contours(config, class_name=class_name)
-                    print("Replaced Background as solid color.")
-
-            # Update mvpcd.yaml with new classes
-            update_mvpcd_yaml(config["class_names"])
+                # Update mvpcd.yaml with new classes
+                update_mvpcd_yaml(config["class_names"])
 
     else:
         # For choices 1 and 3 where train_new_model is True
@@ -587,12 +630,8 @@ def main():
             update_mvpcd_yaml(config["class_names"])
         else:
             # Choice 3: Load and retrain an archived dataset as it is
-
-            # Reset config to default state
-            delete_all_data(config)  # Clear existing data and reset config
-
-            # Restore the archived dataset
             print("\nRestoring the archived dataset...")
+            delete_all_data(config)  # Clear existing data and reset config
             background_images_restored = restore_archive(add_list=[], remove_list=[], archive_path=archive_path)
             print("Archive restored successfully.")
 

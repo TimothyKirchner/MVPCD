@@ -8,10 +8,7 @@ capture:
   num_images: 100
 chroma_key_settings: {}
 class_names:
-- blackthing
-- fanthing
-- orangething
-- yellowthing
+- whitething
 debug:
   backgrounds: data/backgrounds
   bboxes: data/debug/bboxes
