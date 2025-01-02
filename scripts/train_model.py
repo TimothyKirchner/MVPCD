@@ -1,5 +1,4 @@
-# ~/Desktop/MVPCD/scripts/train_model.py
-
+# scripts/train_model.py
 import sys
 import os
 import yaml
@@ -11,29 +10,48 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 def load_config(config_path='config/config.yaml'):
-    config_path = os.path.join(project_root, config_path)
-    with open(config_path, 'r') as file:
+    config_full_path = os.path.join(project_root, config_path)
+    with open(config_full_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
-def train_yolo_model(config, epochs=50, learning_rate=0.001, batch_size=16):
-    data_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
+def train_yolo_model(config, epochs=100, learning_rate=0.0001, batch_size=8):
+    """
+    Train the YOLOv8 model with specified parameters.
+    """
+    # Ensure that mvpcd.yaml exists
+    mvpcd_yaml_path = os.path.join(project_root, 'data', 'mvpcd.yaml')
+    if not os.path.exists(mvpcd_yaml_path):
+        print(f"Configuration file {mvpcd_yaml_path} does not exist.")
+        return
 
-    model = YOLO('yolov8n.pt')
-    project_path = os.path.join(project_root, 'runs', 'detect')
-    print("Model will be saved to:", project_path)
+    # Initialize the YOLO model
+    model = YOLO('yolov8s.pt')  # You can choose other variants
+
+    # Train the model
     model.train(
-        data=data_yaml_path,
+        data=mvpcd_yaml_path,
         epochs=epochs,
-        imgsz=640,
-        batch=batch_size,
         lr0=learning_rate,
+        batch=batch_size,
+        imgsz=640,  # Reduced image size for faster training
         name='mvpcd_yolov8',
-        project=project_path
-    )
-
-    print("YOLOv8 model training completed.")
+        project=os.path.join(project_root, 'runs', 'detect'),
+        verbose=True,
+        augment=True,    # Enable data augmentation
+        pretrained=True, # Ensure transfer learning is utilized
+        weight_decay=0.00005,  # Add regularization
+        visualize=True,
+)
+    latest_model_path = model.ckpt_path  # Or use model.last
+    print("Path to the last trained model:", latest_model_path)
 
 if __name__ == "__main__":
-    config = load_config()
-    train_yolo_model(config)
+    if len(sys.argv) != 4:
+        print("Usage: python train_model.py [epochs] [learning_rate] [batch_size]")
+    else:
+        epochs = int(sys.argv[1])
+        learning_rate = float(sys.argv[2])
+        batch_size = int(sys.argv[3])
+        config = load_config()
+        train_yolo_model(config, epochs=epochs, learning_rate=learning_rate, batch_size=batch_size)

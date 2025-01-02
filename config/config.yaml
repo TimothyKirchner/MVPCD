@@ -4,27 +4,33 @@ camera:
   - 1280
   - 720
 capture:
-  interval: 0.25
-  num_images: 50
-chroma_key:
-  lower_color:
-  - 0
-  - 58
-  - 0
-  upper_color:
-  - 179
-  - 255
-  - 255
-class_name: object
-depth_threshold:
-  max: 585
-  min: 561
+  interval: 0.1
+  num_images: 100
+chroma_key_settings: {}
+class_names:
+- whitething
+debug:
+  backgrounds: data/backgrounds
+  bboxes: data/debug/bboxes
+  coloringmask: data/debug/coloringmask
+  coloringmask_random_bg: data/debug/coloringmask_random_bg
+  combined_mask: data/debug/combined_mask
+  contours: data/debug/contours
+  depthmask: data/debug/depthmask
+  maskinyolo: data/debug/maskinyolo
+  placement: data/debug/placement
+  rgbmask: data/debug/rgbmask
+depth_thresholds: {}
+image_counters: {}
 output:
+  background_image_dir: data/backgrounds
   depth_dir: data/depth_maps
   image_dir: data/images
   label_dir: data/labels
-rois:
-- height: 251
-  width: 290
-  x: 565
-  y: 134
+  test_image_dir: data/images/test
+  test_label_dir: data/labels/test
+  train_image_dir: data/images/train
+  train_label_dir: data/labels/train
+  val_image_dir: data/images/val
+  val_label_dir: data/labels/val
+rois: {}

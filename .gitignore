@@ -1,34 +1,28 @@
-# Ignore data files
+# .gitignore
 data/
-!data/*.yaml  # Do not ignore YAML files in the data directory
+archive/
+!data/*.yaml
 
-# Ignore image and depth map files
 *.png
 *.jpg
 *.jpeg
 *.npy
 
-# Ignore labels
 *.txt
 
-# Ignore model weight files
 *.pt
 
-# Ignore Python cache and logs
 __pycache__/
 *.pyc
 *.log
 
-# Ignore virtual environments
 env/
 venv/
 *.env
 
-# Ignore debug and runs directories if they contain large files
 debug/
 runs/
 
-# Ignore other temporary or unnecessary files
 *.swp
 .DS_Store
 Thumbs.db
